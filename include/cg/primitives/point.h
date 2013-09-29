@@ -14,6 +14,7 @@ namespace cg
    struct point_2t
    {
       Scalar x, y;
+		typedef Scalar value_type;
 
       point_2t(Scalar x, Scalar y)
          : x(x)
