@@ -1,7 +1,6 @@
 #pragma once
 
 #include "range.h"
-#include "point.h"
 
 namespace cg
 {
