@@ -25,9 +25,7 @@ namespace cg
    bool make_max(double& val, double candidate)
    {
       if (val > candidate)
-      {
-         return false;
-      }
+			return false;
 
       val = candidate;
       return true;
@@ -37,25 +35,17 @@ namespace cg
    BigIter circ_next(BigIter cur, BigIter begin, BigIter end)
    {
       if (cur + 1 == end)
-      {
          return begin;
-      }
-
       return cur + 1;
    }
 
    template <class Scalar, class PairPoint>
    void relax_ans(double& val, point_2t<Scalar> p, PairPoint& pair, PairPoint& ans)
    {
-      if (make_max(val, sqr_distance(p, pair.first)))
-      {
-         ans = std::make_pair(p, pair.first);
-      }
-
-      if (make_max(val, sqr_distance(p, pair.second)))
-      {
-         ans = std::make_pair(p, pair.second);
-      }
+		if (make_max(val, sqr_distance(p, pair.first)))
+			ans = std::make_pair(p, pair.first);
+		if (make_max(val, sqr_distance(p, pair.second)))
+			ans = std::make_pair(p, pair.second);
    }
 
    template <class BidIter>
@@ -64,11 +54,7 @@ namespace cg
       typedef typename BidIter::value_type::value_type Scalar;
       typedef typename BidIter::value_type Point;
       typedef std::pair<Point, Point> PairPoint;
-
-      if (begin == end || begin + 1 == end)
-      {
-         return std::make_pair(begin, begin);
-      }
+      if (begin == end || begin + 1 == end) return std::make_pair(begin, begin);
 
       BidIter old_begin = begin, old_end = end;
       std::vector<Point> copy_v(begin, end);
@@ -76,11 +62,8 @@ namespace cg
       end = andrew_hull(copy_v.begin(), copy_v.end());
 
       PairPoint edge = std::make_pair(*begin, *(begin + 1)), ans;
-
       BidIter cur_point = std::max_element(begin, end, [&edge](point_2t<Scalar>& a, point_2t<Scalar>& b)
-      {
-         return distance_edge_ver_not_norm(a, edge) - distance_edge_ver_not_norm(b, edge);
-      });
+		{ return distance_edge_ver_not_norm(a, edge) - distance_edge_ver_not_norm(b, edge); });
 
       double dmax = -1;
       relax_ans(dmax, *cur_point, edge, ans);
@@ -88,12 +71,8 @@ namespace cg
       for (BidIter it = begin + 1; it != end; it++)
       {
          edge = std::make_pair(*it, *(circ_next(it, begin, end)));
-
-         while (distance_edge_ver_not_norm(*cur_point, edge) < distance_edge_ver_not_norm(*(circ_next(cur_point, begin, end)), edge))
-         {
-            cur_point = circ_next(cur_point, begin, end);
-         }
-
+			while (distance_edge_ver_not_norm(*cur_point, edge) < distance_edge_ver_not_norm(*(circ_next(cur_point, begin, end)), edge))
+				cur_point = circ_next(cur_point, begin, end);
          relax_ans(dmax, *cur_point, edge, ans);
       }
 
