@@ -20,7 +20,7 @@ struct diameter_viewer : cg::visualization::viewer_adapter
 {
    diameter_viewer() {}
 
-   void draw(cg::visualization::drawer_type & drawer) const override
+	void draw(cg::visualization::drawer_type & drawer) const override
    {
       drawer.set_color(Qt::white);
       for (point_2 p : pts) {
@@ -45,7 +45,7 @@ struct diameter_viewer : cg::visualization::viewer_adapter
    }
 
 private:
-	std::vector<point_2> pts;
+	mutable std::vector<point_2> pts;
 };
 
 int main(int argc, char ** argv)
