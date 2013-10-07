@@ -22,7 +22,7 @@ namespace cg
 		double len1 = vector_mul_len(seg1, seg2, p1), len2 = vector_mul_len(seg1, seg2, p2);
 		double eps = (len1 + len2) * std::numeric_limits<double>::epsilon() * 8;
 
-		if (abs(len1 - len2) <= eps)
+		if (abs(len1 - len2) > eps)
 			return len1 < len2;
 
 		interval len1i(vector_mul_len<interval>(seg1, seg2, p1)), len2i(vector_mul_len<interval>(seg1, seg2, p2));
