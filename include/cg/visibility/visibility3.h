@@ -21,11 +21,13 @@ namespace cg
 	template <class Scalar>
 	bool not_intersect(point_2t<Scalar> const & a, point_2t<Scalar> const & b, std::vector<contour_2t<Scalar> > & polygons) {
 		typedef contour_2t<Scalar> Countour;
+		typedef segment_2t<Scalar> Segment;
+
 		for (Countour countor : polygons) {
 			for (auto it_p = countor.begin(); it_p != countor.end(); it_p++) {
 				auto it_next = (it_p + 1) == countor.end() ? (countor.begin()) : (it_p + 1);
 				if (a == *it_next || b == *it_next || a == *it_p || b == *it_p) continue;
-				if (has_intersection(segment_2t<Scalar>(a, b), segment_2t<Scalar>(*it_p, *it_next))) {
+				if (has_intersection(Segment(a, b), Segment(*it_p, *it_next))) {
 					return false;
 				}
 			}
@@ -37,6 +39,7 @@ namespace cg
 	void get_visible_points(point_2t<Scalar> const & finish_point, typename std::vector<contour_2t<Scalar> >::iterator contour_of_finish_point,
 									std::vector<contour_2t<Scalar> > & polygons, std::back_insert_iterator<std::vector<segment_2t<Scalar> > > out) {
 		typedef contour_2t<Scalar> Countour;
+
 		for (auto cur_polygon_it = polygons.begin(); cur_polygon_it != polygons.end(); cur_polygon_it++) {
 			Countour cur_polygon = *cur_polygon_it;
 			for (auto candidate_point_it = cur_polygon.begin(); candidate_point_it != cur_polygon.end(); candidate_point_it++) {
@@ -54,7 +57,7 @@ namespace cg
 					if (!more_than_pi(*left, *candidate_point_it, *right)) {
 						ok &= first_rotate != CG_LEFT || second_rotate != CG_LEFT;
 					} else {
-						ok &= first_rotate != CG_LEFT  && second_rotate != CG_LEFT;
+						ok &= first_rotate != CG_LEFT && second_rotate != CG_LEFT;
 					}
 				}
 
@@ -69,8 +72,8 @@ namespace cg
 
 	template <class Scalar>
 	std::vector<segment_2t<Scalar> > get_visibility_graph(point_2t<Scalar> & start, point_2t<Scalar> & end, std::vector<contour_2t<Scalar> > & polygons) {
-		typedef typename std::vector<contour_2t<Scalar> >::iterator PolyIter;
-		std::vector<segment_2t<Scalar> > ans;
+		typedef segment_2t<Scalar> Segment;
+		std::vector<Segment> ans;
 
 		get_visible_points(start, polygons.end(), polygons, std::back_inserter(ans));
 		for (auto it_poly = polygons.begin(); it_poly != polygons.end(); it_poly++) {
@@ -81,7 +84,7 @@ namespace cg
 		}
 		get_visible_points(end, polygons.end(), polygons, std::back_inserter(ans));
 		if (not_intersect(start, end, polygons)) {
-			ans.push_back(segment_2t<Scalar>(start, end));
+			ans.push_back(Segment(start, end));
 		}
 		return ans;
 	}

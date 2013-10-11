@@ -67,7 +67,7 @@ TEST(visibility, hard)
 TEST(visibility, unbelievable)
 {
 
-	point_2 start(0, 0), finish(4, 3);
+	point_2 start(0, 0), finish(4, 5);
 	vector<contour_2> poly;
 	std::vector<point_2> first = boost::assign::list_of(point_2(1, 1))
 	(point_2(1, -2))
