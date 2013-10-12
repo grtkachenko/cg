@@ -24,12 +24,8 @@ TEST(visibility, sample)
 
 	poly.push_back(pts);
 	vector<segment_2> ans = cg::get_visibility_graph(start, finish, poly);
-	cout << ans.size() << endl;
-	for (segment_2 seg : ans) {
-		cout << seg << endl;
-	}
 
-	EXPECT_FALSE(false);
+	EXPECT_TRUE(ans.size() == 10);
 }
 
 TEST(visibility, hard)
@@ -56,12 +52,7 @@ TEST(visibility, hard)
 	poly.push_back(third);
 
 	vector<segment_2> ans = cg::get_visibility_graph(start, finish, poly);
-	cout << ans.size() << endl;
-	for (segment_2 seg : ans) {
-		cout << seg << endl;
-	}
-
-	EXPECT_FALSE(false);
+	EXPECT_TRUE(ans.size() == 28);
 }
 
 TEST(visibility, unbelievable)
@@ -78,13 +69,14 @@ TEST(visibility, unbelievable)
 	poly.push_back(first);
 
 	vector<segment_2> ans = cg::get_visibility_graph(start, finish, poly);
-	cout << ans.size() << endl;
-	for (segment_2 seg : ans) {
-		cout << seg << endl;
-	}
-
-	EXPECT_FALSE(false);
+	EXPECT_TRUE(ans.size() == 12);
 }
 
+TEST(visibility, gangsta)
+{
+	point_2 start(0, 0), finish(4, 5);
+	vector<contour_2> poly;
 
-
+	vector<segment_2> ans = cg::get_visibility_graph(start, finish, poly);
+	EXPECT_TRUE(ans.size() == 1);
+}

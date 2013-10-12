@@ -36,7 +36,7 @@ namespace cg
 	}
 
 	template <class Scalar>
-	void get_visible_points(point_2t<Scalar> const & finish_point, typename std::vector<contour_2t<Scalar> >::iterator contour_of_finish_point,
+	void append_visible_points(point_2t<Scalar> const & finish_point, typename std::vector<contour_2t<Scalar> >::iterator contour_of_finish_point,
 									std::vector<contour_2t<Scalar> > & polygons, std::back_insert_iterator<std::vector<segment_2t<Scalar> > > out) {
 		typedef contour_2t<Scalar> Countour;
 
@@ -75,14 +75,14 @@ namespace cg
 		typedef segment_2t<Scalar> Segment;
 		std::vector<Segment> ans;
 
-		get_visible_points(start, polygons.end(), polygons, std::back_inserter(ans));
+		append_visible_points(start, polygons.end(), polygons, std::back_inserter(ans));
 		for (auto it_poly = polygons.begin(); it_poly != polygons.end(); it_poly++) {
 			auto cur_polygon = *it_poly;
 			for (auto it = cur_polygon.begin(); it != cur_polygon.end(); it++) {
-				get_visible_points(*it, it_poly, polygons, std::back_inserter(ans));
+				append_visible_points(*it, it_poly, polygons, std::back_inserter(ans));
 			}
 		}
-		get_visible_points(end, polygons.end(), polygons, std::back_inserter(ans));
+		append_visible_points(end, polygons.end(), polygons, std::back_inserter(ans));
 		if (not_intersect(start, end, polygons)) {
 			ans.push_back(Segment(start, end));
 		}
