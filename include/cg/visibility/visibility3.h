@@ -86,7 +86,43 @@ namespace cg
 		if (not_intersect(start, end, polygons)) {
 			ans.push_back(Segment(start, end));
 		}
-		return ans;
+		return rebuild_ans(ans, start, end, polygons);
 	}
+
+	template <class Scalar>
+	std::vector<segment_2t<Scalar> > rebuild_ans(std::vector<segment_2t<Scalar> > & prev_ans, point_2t<Scalar> & start,
+																point_2t<Scalar> & end, std::vector<contour_2t<Scalar> > & polygons)  {
+		typedef contour_2t<Scalar> Countour;
+		typedef segment_2t<Scalar> Segment;
+		std::vector<Segment> ans;
+
+		for (Segment cur_segment : prev_ans) {
+			bool ok = true;
+			for (Countour countor : polygons) {
+				for (auto it_p = countor.begin(); it_p != countor.end(); it_p++) {
+					for (int i = 0; i < 2; i++) {
+						if (*it_p != cur_segment[i]) continue;
+
+						auto it_prev = it_p == countor.begin() ? (countor.end() - 1) : (it_p - 1);
+						auto it_next = it_p == countor.end() - 1 ? (countor.begin()) : (it_p + 1);
+						if (cur_segment[1 - i] == *it_prev || cur_segment[1 - i] == *it_next) continue;
+
+						auto first_rotate = orientation(*it_prev, *it_p, cur_segment[1 - i]), second_rotate = orientation(cur_segment[1 - i], *it_p, *it_next);
+						if (first_rotate == CG_RIGHT && second_rotate == CG_RIGHT) {
+							ok = false;
+						}
+					}
+
+				}
+			}
+			if (ok) {
+				ans.push_back(cur_segment);
+			}
+		}
+
+		return ans;
+
+	}
+
 
 }

@@ -9,7 +9,9 @@
 #include "cg/io/point.h"
 
 #include <cg/primitives/point.h>
+#include <cg/visibility/visibility3.h>
 #include <cg/visibility/shortest_path.h>
+
 
 #include <vector>
 
@@ -24,18 +26,22 @@ struct contour_contains_point_viewer : cg::visualization::viewer_adapter
 		, modification_mode_(false)
 		, s(-120, -120)
 		, f(120, 120) {
-		ans = get_shortest_path(s, f, contours);
+		ans_path = cg::get_shortest_path(s, f, contours);
+		ans = cg::get_visibility_graph(s, f, contours);
+
 	}
 
 	void draw(cg::visualization::drawer_type & drawer) const override
 	{
+
 		drawer.set_color(Qt::green);
 
-		for(int i = 0; i < (int) ans.size() - 1; ++i)
+		for(size_t i = 0; i < ans.size(); ++i)
 		{
-			drawer.draw_line(ans[i], ans[i + 1]);
+			drawer.draw_line(ans[i][0], ans[i][1]);
+			drawer.draw_point(ans[i][0], 5);
+			drawer.draw_point(ans[i][1], 5);
 		}
-
 
 		drawer.set_color(Qt::blue);
 		drawer.draw_point(f, 15);
@@ -53,6 +59,12 @@ struct contour_contains_point_viewer : cg::visualization::viewer_adapter
 			for(size_t l = 0, lp = contours[current_polygon_].size() - 1; l != contours[current_polygon_].size(); lp = l++)
 				drawer.draw_line(contours[current_polygon_][lp], contours[current_polygon_][l]);
 		}
+
+		drawer.set_color(Qt::blue);
+		for (int i = 0; i < ans_path.size() - 1; i++) {
+			drawer.draw_line(ans_path[i], ans_path[i + 1]);
+		}
+
 	}
 
 	void print(cg::visualization::printer_type & p) const override
@@ -98,7 +110,8 @@ struct contour_contains_point_viewer : cg::visualization::viewer_adapter
 		if(modification_mode_)
 		{
 			contours[current_polygon_].add_point(p);
-			ans = get_shortest_path(s, f, contours);
+			ans = get_visibility_graph(s, f, contours);
+			ans_path = cg::get_shortest_path(s, f, contours);
 			return true;
 		}
 		else
@@ -108,7 +121,9 @@ struct contour_contains_point_viewer : cg::visualization::viewer_adapter
 			contours.push_back(contour);
 			modification_mode_ = true;
 			current_polygon_ = contours.size() - 1;
-			ans = get_shortest_path(s, f, contours);
+			ans = get_visibility_graph(s, f, contours);
+			ans_path = cg::get_shortest_path(s, f, contours);
+
 			return true;
 		}
 
@@ -131,7 +146,9 @@ struct contour_contains_point_viewer : cg::visualization::viewer_adapter
 			f = p;
 		else
 			contours[current_polygon_][*idx_] = p;
-		ans = get_shortest_path(s, f, contours);
+		ans = get_visibility_graph(s, f, contours);
+		ans_path = cg::get_shortest_path(s, f, contours);
+
 		return true;
 	}
 
@@ -171,7 +188,9 @@ private:
 	boost::optional<int> idx_;
 	int current_polygon_;
 	boost::optional<cg::point_2> current_point_;
-	std::vector< cg::point_2 > ans;
+	std::vector< cg::segment_2 > ans;
+	std::vector< cg::point_2 > ans_path;
+
 	bool modification_mode_;
 	cg::point_2 s, f;
 };

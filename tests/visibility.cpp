@@ -24,6 +24,9 @@ TEST(visibility, sample)
 
 	poly.push_back(pts);
 	vector<segment_2> ans = cg::get_visibility_graph(start, finish, poly);
+	for (segment_2 s : ans) {
+		std::cout << s << std::endl;
+	}
 
 	EXPECT_TRUE(ans.size() == 10);
 }

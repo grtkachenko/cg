@@ -19,8 +19,9 @@ set(SOURCES
 #	convex_hull.cpp
 #	dynamic_convex_hull.cpp
 #	convex.cpp
-	visibility.cpp
-	shortest_path.cpp
+#	visibility.cpp
+#	shortest_path.cpp
+	minkovsky_sum.cpp
 )
 
 add_executable(cg-test ${SOURCES})

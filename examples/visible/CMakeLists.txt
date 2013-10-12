@@ -8,3 +8,6 @@ target_link_libraries(visibility visualization ${GMP_LIBRARIES})
 add_executable(shortest_path shortest_path.cpp)
 target_link_libraries(shortest_path visualization ${GMP_LIBRARIES})
 
+add_executable(minkovsky minkovsky.cpp)
+target_link_libraries(minkovsky visualization ${GMP_LIBRARIES})
+
