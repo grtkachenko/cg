@@ -7,6 +7,7 @@
 #include <cg/visualization/draw_util.h>
 
 #include <cg/triangulation/delaunay.h>
+#include <cg/io/triangle.h>
 
 
 using cg::point_2f;
@@ -40,19 +41,22 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
    }
 
    void make_triangulation() {
-      res = cg::get_delaunay_triangulation(pts);
+      res = tr.get_delaunay_triangulation();
+      for (auto t : res) std::cout << t << std::endl;
    }
 
    bool on_release(const point_2f & p)
    {
-      pts.push_back(p);
+//      pts.push_back(p);
+//      tr.add_point(p);
       make_triangulation();
       return true;
    }
 
 private:
-   std::vector<point_2> pts;
+   cg::delaunay_triangulation<double> tr;
    std::vector<triangle_2> res;
+   std::vector<point_2> pts;
 
 };
 
