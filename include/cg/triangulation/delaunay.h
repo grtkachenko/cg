@@ -10,8 +10,6 @@
 #include <memory>
 #include <boost/optional.hpp>
 
-
-
 namespace cg
 {
    template <class Scalar> struct face;
@@ -115,16 +113,64 @@ namespace cg
                }
                cur_edge = cur_edge->next_edge;
             }
+
+            faces.erase(faces.begin() + std::max(index.first, index.second));
+            faces.erase(faces.begin() + std::min(index.first, index.second));
+
+            // made fake next
+            common_edge->next_edge->next_edge->next_edge = common_edge->twin_edge->next_edge;
+            common_edge->twin_edge->next_edge->next_edge->next_edge = common_edge->next_edge;
+
+            Edge<Scalar> new_edges_ptr[4];
+            Face<Scalar> new_faces[4];
+            cur_edge = common_edge->next_edge;
+
+            // completing faces; creating edges + twins
+            for (int i = 0; i < 4; i++) {
+               edge<Scalar> * new_edge = new edge<Scalar>(a_ptr);
+               edge<Scalar> * twin = new edge<Scalar>(cur_edge->start);
+               Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
+               set_twins(new_edge_ptr, twin_ptr);
+               new_edges_ptr[i] = new_edge_ptr;
+
+               face<Scalar> * cur_face = new face<Scalar>();
+               new_faces[i] = Face<Scalar>(cur_face);
+               cur_face->inc_edge = cur_edge;
+               faces.push_back(new_faces[i]);
+
+               cur_edge = cur_edge->next_edge;
+            }
+
+            // completing edges
+            cur_edge = common_edge->next_edge;
+            for (int i = 0; i < 4; i++) {
+               // backup next_edge
+               auto tmp = cur_edge->next_edge;
+
+               // nexts
+               new_edges_ptr[i]->next_edge = cur_edge;
+               new_edges_ptr[i]->twin_edge->next_edge = new_edges_ptr[(i + 3) % 4];
+               cur_edge->next_edge = new_edges_ptr[(i + 1) % 4]->twin_edge;
+
+               // faces
+               new_edges_ptr[i]->inc_face = new_faces[i];
+               new_edges_ptr[i]->twin_edge->inc_face = new_faces[(i + 3) % 4];
+               cur_edge->inc_face = new_faces[i];
+
+               cur_edge = tmp;
+            }
+
             std::cout << common_edge->start->to_point() << std::endl;
+            return;
          }
 
          // inside the face
-         Face<Scalar> p_face = faces[index.first];
+         auto first_edge = faces[index.first]->inc_edge;
+         faces.erase(faces.begin() + index.first);
 
          Edge<Scalar> new_edges_ptr[3];
          Face<Scalar> new_faces[3];
-         new_faces[0] = p_face;
-         auto cur_edge = p_face->inc_edge;
+         auto cur_edge = first_edge;
 
          // completing faces; creating edges + twins
          for (int i = 0; i < 3; i++) {
@@ -134,18 +180,16 @@ namespace cg
             set_twins(new_edge_ptr, twin_ptr);
             new_edges_ptr[i] = new_edge_ptr;
 
-            if (i != 0) {
-               face<Scalar> * cur_face = new face<Scalar>();
-               new_faces[i] = Face<Scalar>(cur_face);
-               cur_face->inc_edge = cur_edge;
-               faces.push_back(new_faces[i]);
-            }
+            face<Scalar> * cur_face = new face<Scalar>();
+            new_faces[i] = Face<Scalar>(cur_face);
+            cur_face->inc_edge = cur_edge;
+            faces.push_back(new_faces[i]);
 
             cur_edge = cur_edge->next_edge;
          }
 
          // completing edges
-         cur_edge = p_face->inc_edge;
+         cur_edge = first_edge;
          for (int i = 0; i < 3; i++) {
             // backup next_edge
             auto tmp = cur_edge->next_edge;
