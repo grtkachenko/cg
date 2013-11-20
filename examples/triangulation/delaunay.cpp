@@ -48,7 +48,10 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
    bool on_release(const point_2f & p)
    {
 //      pts.push_back(p);
-//      tr.add_point(p);
+      tr.add_point(p);
+//      tr.add_point(point_2(0, 0));
+//      tr.add_point(point_2(0, 10));
+
       make_triangulation();
       return true;
    }

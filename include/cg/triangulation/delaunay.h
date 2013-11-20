@@ -45,7 +45,7 @@ namespace cg
    template <class Scalar>
    struct vertex : point_2t<Scalar> {
       vertex(Scalar a, Scalar b) : point_2t<Scalar>(a, b) {}
-
+      vertex(point_2t<Scalar> p) : point_2t<Scalar>(p) {}
 
       point_2t<Scalar> to_point() {
          return point_2t<Scalar>(this->x, this->y);
@@ -65,27 +65,101 @@ namespace cg
    template <class Scalar>
    struct cell {
 
-      Face<Scalar> find_face(point_2t<Scalar> const & p) {
-         for (auto f : faces) {
-            Edge<Scalar> start_edge = f.inc_edge;
-            Edge<Scalar> cur = start_edge;
+      // returns index in array
+      std::pair<int, int> find_face(point_2t<Scalar> const & p) {
+         std::pair<int, int> res(-1, -1);
+         for (int i = 0; i < faces.size(); i++) {
+            auto f = faces[i];
+            Edge<Scalar> cur = f->inc_edge;
             bool ok = true;
-            while (true) {
+            for (int j = 0; j < 3; j++) {
                if (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_RIGHT) {
                   ok = false;
                   break;
                }
                cur = cur->next_edge;
-               if (cur == start_edge) break;
             }
-            if (ok) return f;
+            if (ok) {
+               if (res.first == -1) {
+                  res.first = i;
+               } else {
+                  res.second = i;
+               }
+            }
+
          }
-//         return 0;
+         return res;
       }
 
       void add_vertex(point_2t<Scalar> const & p) {
-         auto p_face = find_face(p);
-         face<Scalar> a, b, c;
+         auto index = find_face(p);
+         if (index.first == -1) {
+            return;
+         }
+         if (index.second != -1) {
+            // on the edge
+            Edge<Scalar> common_edge;
+
+            auto cur_edge = faces[index.first]->inc_edge;
+            for (int i = 0; i < 3; i++) {
+               auto cur_second_edge = faces[index.second]->inc_edge;
+               for (int j = 0; j < 3; j++) {
+                  if (cur_second_edge->twin_edge == cur_edge) {
+                     common_edge = cur_edge;
+                  }
+                  cur_second_edge = cur_second_edge->next_edge;
+               }
+               cur_edge = cur_edge->next_edge;
+            }
+            std::cout << common_edge->start->to_point() << std::endl;
+         }
+         // inside the face
+         Face<Scalar> p_face = faces[index.first];
+         vertex<Scalar> * a = new vertex<Scalar>(p);
+         Vertex<Scalar> a_ptr(a);
+
+         Edge<Scalar> new_edges_ptr[3];
+
+         // creating new edges, their twins
+         auto cur_edge = p_face->inc_edge;
+         for (int i = 0; i < 3; i++) {
+            edge<Scalar> * new_edge = new edge<Scalar>(a_ptr);
+            edge<Scalar> * twin = new edge<Scalar>(cur_edge->start);
+            Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
+            set_twins(new_edge_ptr, twin_ptr);
+            new_edge->next_edge = cur_edge;
+            cur_edge = cur_edge->next_edge;
+            new_edges_ptr[i] = new_edge_ptr;
+         }
+
+         Face<Scalar> new_faces[3];
+         new_faces[0] = p_face;
+         cur_edge = p_face->inc_edge->next_edge;
+         for (int i = 1; i < 3; i++) {
+            face<Scalar> * cur_face = new face<Scalar>();
+            new_faces[i] = Face<Scalar>(cur_face);
+            cur_face->inc_edge = cur_edge;
+            cur_edge->inc_face = new_faces[i];
+            cur_edge = cur_edge->next_edge;
+            faces.push_back(new_faces[i]);
+         }
+
+         cur_edge = p_face->inc_edge->next_edge->next_edge;
+         for (int i = 0; i < 3; i++) {
+            auto tmp = cur_edge->next_edge;
+            cur_edge->next_edge = new_edges_ptr[i]->twin_edge;
+            new_edges_ptr[i]->twin_edge->next_edge = new_edges_ptr[(i + 2) % 3];
+            cur_edge = tmp;
+            new_edges_ptr[i]->inc_face = new_faces[i];
+            new_edges_ptr[i]->twin_edge->inc_face = new_faces[(i + 2) % 3];
+         }
+
+
+      }
+
+      void set_twins(Edge<Scalar> e1, Edge<Scalar> e2) {
+         e1->twin_edge = e2;
+         e2->twin_edge = e1;
       }
 
       // it will be removed after modification
@@ -93,10 +167,9 @@ namespace cg
          face<Scalar> * inf_face = new face<Scalar>();
          Face<Scalar> inf_face_ptr(inf_face);
 
-
-         vertex<Scalar> * a = new vertex<Scalar>(-100, 0);
-         vertex<Scalar> * b = new vertex<Scalar>(100, 0);
-         vertex<Scalar> * c = new vertex<Scalar>(0, 80);
+         vertex<Scalar> * a = new vertex<Scalar>(-400, -300);
+         vertex<Scalar> * b = new vertex<Scalar>(400, -300);
+         vertex<Scalar> * c = new vertex<Scalar>(0, 300);
          Vertex<Scalar> a_ptr(a), b_ptr(b), c_ptr(c);
 
          edge<Scalar> * a_inside = new edge<Scalar>(a_ptr);
