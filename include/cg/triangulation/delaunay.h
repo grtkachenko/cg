@@ -96,6 +96,10 @@ namespace cg
          if (index.first == -1) {
             return;
          }
+         // vertex is common for both cases
+         vertex<Scalar> * a = new vertex<Scalar>(p);
+         Vertex<Scalar> a_ptr(a);
+
          if (index.second != -1) {
             // on the edge
             Edge<Scalar> common_edge;
@@ -113,48 +117,51 @@ namespace cg
             }
             std::cout << common_edge->start->to_point() << std::endl;
          }
+
          // inside the face
          Face<Scalar> p_face = faces[index.first];
-         vertex<Scalar> * a = new vertex<Scalar>(p);
-         Vertex<Scalar> a_ptr(a);
 
          Edge<Scalar> new_edges_ptr[3];
-
-         // creating new edges, their twins
+         Face<Scalar> new_faces[3];
+         new_faces[0] = p_face;
          auto cur_edge = p_face->inc_edge;
+
+         // completing faces; creating edges + twins
          for (int i = 0; i < 3; i++) {
             edge<Scalar> * new_edge = new edge<Scalar>(a_ptr);
             edge<Scalar> * twin = new edge<Scalar>(cur_edge->start);
             Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
             set_twins(new_edge_ptr, twin_ptr);
-            new_edge->next_edge = cur_edge;
-            cur_edge = cur_edge->next_edge;
             new_edges_ptr[i] = new_edge_ptr;
-         }
 
-         Face<Scalar> new_faces[3];
-         new_faces[0] = p_face;
-         cur_edge = p_face->inc_edge->next_edge;
-         for (int i = 1; i < 3; i++) {
-            face<Scalar> * cur_face = new face<Scalar>();
-            new_faces[i] = Face<Scalar>(cur_face);
-            cur_face->inc_edge = cur_edge;
-            cur_edge->inc_face = new_faces[i];
+            if (i != 0) {
+               face<Scalar> * cur_face = new face<Scalar>();
+               new_faces[i] = Face<Scalar>(cur_face);
+               cur_face->inc_edge = cur_edge;
+               faces.push_back(new_faces[i]);
+            }
+
             cur_edge = cur_edge->next_edge;
-            faces.push_back(new_faces[i]);
          }
 
-         cur_edge = p_face->inc_edge->next_edge->next_edge;
+         // completing edges
+         cur_edge = p_face->inc_edge;
          for (int i = 0; i < 3; i++) {
+            // backup next_edge
             auto tmp = cur_edge->next_edge;
-            cur_edge->next_edge = new_edges_ptr[i]->twin_edge;
+
+            // nexts
+            new_edges_ptr[i]->next_edge = cur_edge;
             new_edges_ptr[i]->twin_edge->next_edge = new_edges_ptr[(i + 2) % 3];
-            cur_edge = tmp;
+            cur_edge->next_edge = new_edges_ptr[(i + 1) % 3]->twin_edge;
+
+            // faces
             new_edges_ptr[i]->inc_face = new_faces[i];
             new_edges_ptr[i]->twin_edge->inc_face = new_faces[(i + 2) % 3];
+            cur_edge->inc_face = new_faces[i];
+
+            cur_edge = tmp;
          }
-
-
       }
 
       void set_twins(Edge<Scalar> e1, Edge<Scalar> e2) {
