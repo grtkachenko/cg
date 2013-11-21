@@ -39,6 +39,12 @@ namespace cg
       Face<Scalar> inc_face;
    };
 
+   template <class Scalar>
+   inline bool operator < (edge<Scalar> const & e1, edge<Scalar> const & e2) {
+      point_2t<Scalar> e1_start = e1->start->to_point(), e1_end = e1->next_edge->start->to_point();
+      point_2t<Scalar> e2_start = e2->start->to_point(), e2_end = e2->next_edge->start->to_point();
+      return cg::orientation(e1_start, e1_end, e1_end + (e2_end - e2_start));
+   }
 
    template <class Scalar>
    struct vertex : point_2t<Scalar> {
@@ -73,13 +79,15 @@ namespace cg
          vertexes.push_back(Vertex<Scalar>(inf_p));
       }
 
-      // returns index in array
-      std::vector<int> find_face(point_2t<Scalar> const & p) {
+      // returns vector of indexes + pair of min and max edge (in case of point out of polygon)
+      std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> find_face(point_2t<Scalar> const & p) {
          std::vector<int> found_faces;
+         std::pair<Edge<Scalar>, Edge<Scalar>> min_max_edge(nullptr, nullptr);
+
          for (int i = 0; i < faces.size(); i++) {
             auto f = faces[i];
             f->is_inf_face = false;
-            Edge<Scalar> cur = f->inc_edge;
+            auto cur = f->inc_edge;
             bool ok = true;
             for (int j = 0; j < 3; j++) {
                if (cur->start->is_inf_point || cur->next_edge->start->is_inf_point) {
@@ -94,12 +102,32 @@ namespace cg
                }
                cur = cur->next_edge;
             }
+
+            if (f->is_inf_face) {
+               cur = f->inc_edge;
+               for (int i = 0; i < 3; i++) {
+                  if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
+                      cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT) {
+                     if (min_max_edge.second == nullptr) {
+                        min_max_edge.first = min_max_edge.second = cur;
+                     } else {
+                        min_max_edge.first = min(min_max_edge.first, cur);
+                        min_max_edge.second = max(min_max_edge.second, cur);
+
+                     }
+                     break;
+                  }
+                  cur = cur->next_edge;
+               }
+            }
+
+
             if (ok) {
                found_faces.push_back(i);
             }
 
          }
-         return found_faces;
+         return std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>(found_faces, min_max_edge);
       }
 
       void add_vertex(point_2t<Scalar> const & p) {        
@@ -118,47 +146,76 @@ namespace cg
          }
 
          // it shouldn't be empty
-         auto index = find_face(p);
+         auto find_face_res = find_face(p);
+         auto index = find_face_res.first;
          assert(!index.empty());
 
          // common as well
          Edge<Scalar> first_edge;
          int total_vertexes;
 
-         // NOT inf face
-         if (index.size() == 2) {
-            // on the edge
-            Edge<Scalar> common_edge;
 
-            auto cur_edge = faces[index[0]]->inc_edge;
-            for (int i = 0; i < 3; i++) {
-               auto cur_second_edge = faces[index[1]]->inc_edge;
-               for (int j = 0; j < 3; j++) {
-                  if (cur_second_edge->twin_edge == cur_edge) {
-                     common_edge = cur_edge;
-                  }
-                  cur_second_edge = cur_second_edge->next_edge;
+
+         if (faces[index[0]]->is_inf_face) {
+            std::cout << "Out of polygon" << std::endl;
+            auto min_max_edge = find_face_res.second;
+            auto cur_edge = min_max_edge.first;
+            if (index.size() != 1) {
+               min_max_edge.second->next_edge->next_edge = min_max_edge.first->next_edge->next_edge;
+
+               for (int i = 0; i < index.size() - 1; i++) {
+                  cur_edge->next_edge = cur_edge->next_edge->twin_edge->next_edge;
+                  cur_edge = cur_edge->next_edge;
                }
-               cur_edge = cur_edge->next_edge;
             }
 
-            faces.erase(faces.begin() + *std::max_element(index.begin(), index.end()));
-            faces.erase(faces.begin() + *std::min_element(index.begin(), index.end()));
+            first_edge = min_max_edge.first;
+            total_vertexes = index.size() + 2;
+            std::vector<bool> need_to_delete(faces.size(), false);
+            for (int cur_index : index) {
+               need_to_delete[cur_index] = true;
+            }
+            for (int i = faces.size() - 1; i >= 0; i--) {
+               if (need_to_delete[i]) faces.erase(faces.begin() + i);
+            }
 
-            // made fake next
-            common_edge->next_edge->next_edge->next_edge = common_edge->twin_edge->next_edge;
-            common_edge->twin_edge->next_edge->next_edge->next_edge = common_edge->next_edge;
-            first_edge = common_edge->next_edge;
-
-            total_vertexes = 4;
          } else {
-            total_vertexes = 3;
-            first_edge = faces[index[0]]->inc_edge;
-            faces.erase(faces.begin() + index[0]);
+            // NOT inf face
+            if (index.size() == 2) {
+               // on the edge
+               Edge<Scalar> common_edge;
+
+               auto cur_edge = faces[index[0]]->inc_edge;
+               for (int i = 0; i < 3; i++) {
+                  auto cur_second_edge = faces[index[1]]->inc_edge;
+                  for (int j = 0; j < 3; j++) {
+                     if (cur_second_edge->twin_edge == cur_edge) {
+                        common_edge = cur_edge;
+                     }
+                     cur_second_edge = cur_second_edge->next_edge;
+                  }
+                  cur_edge = cur_edge->next_edge;
+               }
+
+               faces.erase(faces.begin() + *std::max_element(index.begin(), index.end()));
+               faces.erase(faces.begin() + *std::min_element(index.begin(), index.end()));
+
+               // made fake next
+               common_edge->next_edge->next_edge->next_edge = common_edge->twin_edge->next_edge;
+               common_edge->twin_edge->next_edge->next_edge->next_edge = common_edge->next_edge;
+               first_edge = common_edge->next_edge;
+               total_vertexes = 4;
+            } else {
+               total_vertexes = 3;
+               first_edge = faces[index[0]]->inc_edge;
+               faces.erase(faces.begin() + index[0]);
+            }
          }
 
-         Edge<Scalar> new_edges_ptr[4];
-         Face<Scalar> new_faces[4];
+
+
+         std::vector<Edge<Scalar>> new_edges_ptr(total_vertexes);
+         std::vector<Face<Scalar>> new_faces(total_vertexes);
          auto cur_edge = first_edge;
 
          // completing faces; creating edges + twins

@@ -26,6 +26,19 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
 //      tr.add_point(point_2(0, 84));
 //      tr.add_point(point_2(-10, -86));
 
+//      tr.add_point(point_2(-30, -10));
+//      tr.add_point(point_2(0, 1));
+//      tr.add_point(point_2(30, 0));
+//      tr.add_point(point_2(60, -10));
+
+      tr.add_point(point_2(-30, 0));
+      tr.add_point(point_2(30, 0));
+      tr.add_point(point_2(0, 50));
+      tr.add_point(point_2(-10, 80));
+      tr.add_point(point_2(12, 76));
+
+
+      make_triangulation();
 
 //      tr.add_point(point_2(0, -10));
    }
