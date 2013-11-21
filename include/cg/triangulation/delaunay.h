@@ -40,10 +40,10 @@ namespace cg
    };
 
    template <class Scalar>
-   inline bool operator < (edge<Scalar> const & e1, edge<Scalar> const & e2) {
+   bool less(Edge<Scalar> e1, Edge<Scalar> e2) {
       point_2t<Scalar> e1_start = e1->start->to_point(), e1_end = e1->next_edge->start->to_point();
       point_2t<Scalar> e2_start = e2->start->to_point(), e2_end = e2->next_edge->start->to_point();
-      return cg::orientation(e1_start, e1_end, e1_end + (e2_end - e2_start));
+      return cg::orientation(e1_start, e1_end, e1_end + (e2_end - e2_start)) == cg::CG_RIGHT;
    }
 
    template <class Scalar>
@@ -79,10 +79,12 @@ namespace cg
          vertexes.push_back(Vertex<Scalar>(inf_p));
       }
 
+      std::pair<Edge<Scalar>, Edge<Scalar>> min_max_edge;
+
       // returns vector of indexes + pair of min and max edge (in case of point out of polygon)
-      std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> find_face(point_2t<Scalar> const & p) {
+      std::vector<int> find_face(point_2t<Scalar> const & p) {
          std::vector<int> found_faces;
-         std::pair<Edge<Scalar>, Edge<Scalar>> min_max_edge(nullptr, nullptr);
+         min_max_edge.first = nullptr; min_max_edge.second = nullptr;
 
          for (int i = 0; i < faces.size(); i++) {
             auto f = faces[i];
@@ -105,15 +107,15 @@ namespace cg
 
             if (f->is_inf_face) {
                cur = f->inc_edge;
-               for (int i = 0; i < 3; i++) {
+               for (int j = 0; j < 3; j++) {
                   if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
                       cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT) {
                      if (min_max_edge.second == nullptr) {
-                        min_max_edge.first = min_max_edge.second = cur;
+                        min_max_edge.first = cur;
+                         min_max_edge.second = cur;
                      } else {
-                        min_max_edge.first = min(min_max_edge.first, cur);
-                        min_max_edge.second = max(min_max_edge.second, cur);
-
+                        if (less(cur, min_max_edge.first)) min_max_edge.first = cur;
+                        if (less(min_max_edge.second, cur)) min_max_edge.second = cur;
                      }
                      break;
                   }
@@ -127,7 +129,7 @@ namespace cg
             }
 
          }
-         return std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>(found_faces, min_max_edge);
+         return found_faces;
       }
 
       void add_vertex(point_2t<Scalar> const & p) {        
@@ -146,8 +148,7 @@ namespace cg
          }
 
          // it shouldn't be empty
-         auto find_face_res = find_face(p);
-         auto index = find_face_res.first;
+         auto index = find_face(p);
          assert(!index.empty());
 
          // common as well
@@ -158,7 +159,6 @@ namespace cg
 
          if (faces[index[0]]->is_inf_face) {
             std::cout << "Out of polygon" << std::endl;
-            auto min_max_edge = find_face_res.second;
             auto cur_edge = min_max_edge.first;
             if (index.size() != 1) {
                min_max_edge.second->next_edge->next_edge = min_max_edge.first->next_edge->next_edge;
@@ -178,6 +178,10 @@ namespace cg
             for (int i = faces.size() - 1; i >= 0; i--) {
                if (need_to_delete[i]) faces.erase(faces.begin() + i);
             }
+
+            std::cout << "min_max_edge 1 is " << min_max_edge.first->start->to_point() << " " << min_max_edge.first->next_edge->start->to_point() << std::endl;
+            std::cout << "min_max_edge 2 is " << min_max_edge.second->start->to_point() << " " << min_max_edge.second->next_edge->start->to_point() << std::endl;
+
 
          } else {
             // NOT inf face
@@ -211,6 +215,8 @@ namespace cg
                faces.erase(faces.begin() + index[0]);
             }
          }
+
+         std::cout << "First edge is " << first_edge->start->to_point() << " " << first_edge->next_edge->start->to_point() << std::endl;
 
 
 
