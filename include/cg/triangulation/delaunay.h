@@ -97,6 +97,11 @@ namespace cg
          // vertex is common for both cases
          vertex<Scalar> * a = new vertex<Scalar>(p);
          Vertex<Scalar> a_ptr(a);
+         vertexes.push_back(a_ptr);
+
+         // common as well
+         Edge<Scalar> first_edge;
+         int total_vertexes;
 
          if (index.second != -1) {
             // on the edge
@@ -120,60 +125,21 @@ namespace cg
             // made fake next
             common_edge->next_edge->next_edge->next_edge = common_edge->twin_edge->next_edge;
             common_edge->twin_edge->next_edge->next_edge->next_edge = common_edge->next_edge;
+            first_edge = common_edge->next_edge;
 
-            Edge<Scalar> new_edges_ptr[4];
-            Face<Scalar> new_faces[4];
-            cur_edge = common_edge->next_edge;
-
-            // completing faces; creating edges + twins
-            for (int i = 0; i < 4; i++) {
-               edge<Scalar> * new_edge = new edge<Scalar>(a_ptr);
-               edge<Scalar> * twin = new edge<Scalar>(cur_edge->start);
-               Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
-               set_twins(new_edge_ptr, twin_ptr);
-               new_edges_ptr[i] = new_edge_ptr;
-
-               face<Scalar> * cur_face = new face<Scalar>();
-               new_faces[i] = Face<Scalar>(cur_face);
-               cur_face->inc_edge = cur_edge;
-               faces.push_back(new_faces[i]);
-
-               cur_edge = cur_edge->next_edge;
-            }
-
-            // completing edges
-            cur_edge = common_edge->next_edge;
-            for (int i = 0; i < 4; i++) {
-               // backup next_edge
-               auto tmp = cur_edge->next_edge;
-
-               // nexts
-               new_edges_ptr[i]->next_edge = cur_edge;
-               new_edges_ptr[i]->twin_edge->next_edge = new_edges_ptr[(i + 3) % 4];
-               cur_edge->next_edge = new_edges_ptr[(i + 1) % 4]->twin_edge;
-
-               // faces
-               new_edges_ptr[i]->inc_face = new_faces[i];
-               new_edges_ptr[i]->twin_edge->inc_face = new_faces[(i + 3) % 4];
-               cur_edge->inc_face = new_faces[i];
-
-               cur_edge = tmp;
-            }
-
-            std::cout << common_edge->start->to_point() << std::endl;
-            return;
+            total_vertexes = 4;
+         } else {
+            total_vertexes = 3;
+            first_edge = faces[index.first]->inc_edge;
+            faces.erase(faces.begin() + index.first);
          }
 
-         // inside the face
-         auto first_edge = faces[index.first]->inc_edge;
-         faces.erase(faces.begin() + index.first);
-
-         Edge<Scalar> new_edges_ptr[3];
-         Face<Scalar> new_faces[3];
+         Edge<Scalar> new_edges_ptr[4];
+         Face<Scalar> new_faces[4];
          auto cur_edge = first_edge;
 
          // completing faces; creating edges + twins
-         for (int i = 0; i < 3; i++) {
+         for (int i = 0; i < total_vertexes; i++) {
             edge<Scalar> * new_edge = new edge<Scalar>(a_ptr);
             edge<Scalar> * twin = new edge<Scalar>(cur_edge->start);
             Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
@@ -190,22 +156,105 @@ namespace cg
 
          // completing edges
          cur_edge = first_edge;
-         for (int i = 0; i < 3; i++) {
+         for (int i = 0; i < total_vertexes; i++) {
             // backup next_edge
             auto tmp = cur_edge->next_edge;
 
             // nexts
             new_edges_ptr[i]->next_edge = cur_edge;
-            new_edges_ptr[i]->twin_edge->next_edge = new_edges_ptr[(i + 2) % 3];
-            cur_edge->next_edge = new_edges_ptr[(i + 1) % 3]->twin_edge;
+            new_edges_ptr[i]->twin_edge->next_edge = new_edges_ptr[(i + total_vertexes - 1) % total_vertexes];
+            cur_edge->next_edge = new_edges_ptr[(i + 1) % total_vertexes]->twin_edge;
 
             // faces
             new_edges_ptr[i]->inc_face = new_faces[i];
-            new_edges_ptr[i]->twin_edge->inc_face = new_faces[(i + 2) % 3];
+            new_edges_ptr[i]->twin_edge->inc_face = new_faces[(i + total_vertexes - 1) % total_vertexes];
             cur_edge->inc_face = new_faces[i];
 
             cur_edge = tmp;
          }
+
+         // fixes edges
+         cur_edge = first_edge;
+         std::cout << "__________________" << std::endl;
+         for (int i = 0; i < total_vertexes; i++) {
+            std::cout << cur_edge->start->to_point() << " " << cur_edge->next_edge->start->to_point() << std::endl;
+            fix_edge(cur_edge);
+            cur_edge = cur_edge->next_edge->twin_edge->next_edge;
+         }
+      }
+
+      void fix_edge(Edge<Scalar> e) {
+         // TODO: remove it
+         if (e->twin_edge == nullptr) {
+            return;
+         }
+         std::cout << "Fix edge : " << e->start->to_point() << " " << e->next_edge->start->to_point() << " " << e->next_edge->next_edge->start->to_point();
+
+         if (is_edge_bad(e)) {
+            std::cout << " it's BAD edge" << std::endl;
+
+            // flip and fix new edges
+            auto edge_to_fix1 = e->twin_edge->next_edge, edge_to_fix2 = e->twin_edge->next_edge->next_edge;
+
+            //creating edge
+            edge<Scalar> * new_edge = new edge<Scalar>(e->next_edge->next_edge->start);
+            edge<Scalar> * twin = new edge<Scalar>(e->twin_edge->next_edge->next_edge->start);
+            Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
+            set_twins(new_edge_ptr, twin_ptr);
+
+            //completed faces
+            auto first_face = e->inc_face, second_face = e->twin_edge->inc_face;
+
+            first_face->inc_edge = e->next_edge;
+            second_face->inc_edge = e->twin_edge->next_edge;
+
+            e->next_edge->next_edge->inc_face = second_face;
+            e->twin_edge->next_edge->next_edge->inc_face = first_face;
+
+            new_edge_ptr->inc_face = first_face;
+            twin_ptr->inc_face = second_face;
+
+            //completed nexts
+            new_edge_ptr->next_edge = e->twin_edge->next_edge->next_edge;
+            twin_ptr->next_edge = e->next_edge->next_edge;
+
+            e->next_edge->next_edge->next_edge = e->twin_edge->next_edge;
+            e->next_edge->next_edge = new_edge_ptr;
+            e->twin_edge->next_edge->next_edge->next_edge = e->next_edge;
+            e->twin_edge->next_edge->next_edge = twin_ptr;
+
+            //start new fixes!!!
+            fix_edge(edge_to_fix1);
+            fix_edge(edge_to_fix2);
+         } else {
+            std::cout << " it's OK edge" << std::endl;
+         }
+      }
+
+      bool is_edge_bad(Edge<Scalar> e, bool is_twin = false) {
+         // TODO: make it fast (maybe you shouldn't check all the points)
+         for (auto v : vertexes) {
+            if (e->start == v || e->next_edge->start == v
+                || e->next_edge->next_edge->start == v) continue;
+
+            if (is_inside(e->start, e->next_edge->start, e->next_edge->next_edge->start, v)) {
+               return true;
+            }
+         }
+         if (!is_twin) {
+            return is_edge_bad(e->twin_edge, true);
+         }
+
+         return false;
+      }
+
+      bool is_inside(Vertex<Scalar> va, Vertex<Scalar> vb, Vertex<Scalar> vc, Vertex<Scalar> vd) {
+         // TODO: make it exact (!)
+         point_2t<Scalar> a = va->to_point(), b = vb->to_point(), c = vc->to_point(), d = vd->to_point();
+         double a11 = a.x - d.x, a12 = a.y - d.y, a13 = (a.x * a.x - d.x * d.x) + (a.y * a.y - d.y * d.y);
+         double a21 = b.x - d.x, a22 = b.y - d.y, a23 = (b.x * b.x - d.x * d.x) + (b.y * b.y - d.y * d.y);
+         double a31 = c.x - d.x, a32 = c.y - d.y, a33 = (c.x * c.x - d.x * d.x) + (c.y * c.y - d.y * d.y);
+         return a11 * (a22 * a33 - a23 * a32) - a12 * (a21 * a33 - a23 * a31) + a13 * (a21 * a32 - a22 * a31) > 0;
       }
 
       void set_twins(Edge<Scalar> e1, Edge<Scalar> e2) {
@@ -236,6 +285,15 @@ namespace cg
          faces.push_back(inf_face_ptr);
       }
 
+      bool contains_point(point_2t<Scalar> const & p) {
+         for (auto v : vertexes) {
+            if (v->to_point() == p) {
+               return true;
+            }
+         }
+         return false;
+      }
+
 
       std::vector<triangle_2t<Scalar> > get_triangulation() {
          std::vector<triangle_2t<Scalar> > res;
@@ -248,7 +306,8 @@ namespace cg
       }
 
    private:
-      std::vector<Face<Scalar> > faces;
+      std::vector<Face<Scalar>> faces;
+      std::vector<Vertex<Scalar>> vertexes;
    };
 
    template <class Scalar>
@@ -261,7 +320,7 @@ namespace cg
 
       void add_point(point_2t<Scalar> p)
       {
-         tr_cell.add_vertex(p);
+         if (!tr_cell.contains_point(p)) tr_cell.add_vertex(p);
       }
 
       std::vector<triangle_2t<Scalar> > get_delaunay_triangulation() {
@@ -273,8 +332,5 @@ namespace cg
       std::vector<triangle_2t<Scalar> > res;
       cell<Scalar> tr_cell;
    };
-
-
-
 
 }
