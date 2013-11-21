@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <boost/optional.hpp>
+#include <exception>
 
 namespace cg
 {
@@ -27,8 +28,7 @@ namespace cg
    struct edge {
       edge(Vertex<Scalar> start) : start(start) {}
 
-      void init_members(Edge<Scalar> _twin_edge, Edge<Scalar> _next_edge, Face<Scalar> _inc_face) {
-         twin_edge = _twin_edge;
+      void init_members(Edge<Scalar> _next_edge, Face<Scalar> _inc_face) {
          next_edge = _next_edge;
          inc_face = _inc_face;
       }
@@ -42,8 +42,9 @@ namespace cg
 
    template <class Scalar>
    struct vertex : point_2t<Scalar> {
-      vertex(Scalar a, Scalar b) : point_2t<Scalar>(a, b) {}
-      vertex(point_2t<Scalar> p) : point_2t<Scalar>(p) {}
+      vertex(bool is_inf_point) : is_inf_point(is_inf_point) {}
+      vertex(Scalar a, Scalar b) : point_2t<Scalar>(a, b), is_inf_point(false) {}
+      vertex(point_2t<Scalar> p) : point_2t<Scalar>(p), is_inf_point(false) {}
 
       point_2t<Scalar> to_point() {
          return point_2t<Scalar>(this->x, this->y);
@@ -51,26 +52,42 @@ namespace cg
 
       //members
       Edge<Scalar> inc_edge;
+      bool is_inf_point;
    };
 
 
    template <class Scalar>
    struct face {
+      face() : is_inf_face(false) {}
+
       //members
       Edge<Scalar> inc_edge;
+      bool is_inf_face;
    };
 
    template <class Scalar>
    struct cell {
 
+      cell() {
+         vertex<Scalar> * inf_p = new vertex<Scalar>(true);
+         vertexes.push_back(Vertex<Scalar>(inf_p));
+      }
+
       // returns index in array
-      std::pair<int, int> find_face(point_2t<Scalar> const & p) {
-         std::pair<int, int> res(-1, -1);
+      std::vector<int> find_face(point_2t<Scalar> const & p) {
+         std::vector<int> found_faces;
          for (int i = 0; i < faces.size(); i++) {
             auto f = faces[i];
+            f->is_inf_face = false;
             Edge<Scalar> cur = f->inc_edge;
             bool ok = true;
             for (int j = 0; j < 3; j++) {
+               if (cur->start->is_inf_point || cur->next_edge->start->is_inf_point) {
+                  cur = cur->next_edge;
+                  f->is_inf_face = true;
+                  continue;
+               }
+
                if (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_RIGHT) {
                   ok = false;
                   break;
@@ -78,38 +95,44 @@ namespace cg
                cur = cur->next_edge;
             }
             if (ok) {
-               if (res.first == -1) {
-                  res.first = i;
-               } else {
-                  res.second = i;
-               }
+               found_faces.push_back(i);
             }
 
          }
-         return res;
+         return found_faces;
       }
 
-      void add_vertex(point_2t<Scalar> const & p) {
-         auto index = find_face(p);
-         if (index.first == -1) {
-            return;
-         }
+      void add_vertex(point_2t<Scalar> const & p) {        
          // vertex is common for both cases
          vertex<Scalar> * a = new vertex<Scalar>(p);
          Vertex<Scalar> a_ptr(a);
          vertexes.push_back(a_ptr);
+         if (vertexes.size() < 3) {
+            // not enough points :(
+            return;
+         } else {
+            if (vertexes.size() == 3) {
+               init_with_triangle();
+               return;
+            }
+         }
+
+         // it shouldn't be empty
+         auto index = find_face(p);
+         assert(!index.empty());
 
          // common as well
          Edge<Scalar> first_edge;
          int total_vertexes;
 
-         if (index.second != -1) {
+         // NOT inf face
+         if (index.size() == 2) {
             // on the edge
             Edge<Scalar> common_edge;
 
-            auto cur_edge = faces[index.first]->inc_edge;
+            auto cur_edge = faces[index[0]]->inc_edge;
             for (int i = 0; i < 3; i++) {
-               auto cur_second_edge = faces[index.second]->inc_edge;
+               auto cur_second_edge = faces[index[1]]->inc_edge;
                for (int j = 0; j < 3; j++) {
                   if (cur_second_edge->twin_edge == cur_edge) {
                      common_edge = cur_edge;
@@ -119,8 +142,8 @@ namespace cg
                cur_edge = cur_edge->next_edge;
             }
 
-            faces.erase(faces.begin() + std::max(index.first, index.second));
-            faces.erase(faces.begin() + std::min(index.first, index.second));
+            faces.erase(faces.begin() + *std::max_element(index.begin(), index.end()));
+            faces.erase(faces.begin() + *std::min_element(index.begin(), index.end()));
 
             // made fake next
             common_edge->next_edge->next_edge->next_edge = common_edge->twin_edge->next_edge;
@@ -130,8 +153,8 @@ namespace cg
             total_vertexes = 4;
          } else {
             total_vertexes = 3;
-            first_edge = faces[index.first]->inc_edge;
-            faces.erase(faces.begin() + index.first);
+            first_edge = faces[index[0]]->inc_edge;
+            faces.erase(faces.begin() + index[0]);
          }
 
          Edge<Scalar> new_edges_ptr[4];
@@ -176,6 +199,8 @@ namespace cg
          // fixes edges
          cur_edge = first_edge;
          std::cout << "__________________" << std::endl;
+         std::cout << "Total vertexes: " << total_vertexes << std::endl;
+
          for (int i = 0; i < total_vertexes; i++) {
             std::cout << cur_edge->start->to_point() << " " << cur_edge->next_edge->start->to_point() << std::endl;
             fix_edge(cur_edge);
@@ -184,8 +209,7 @@ namespace cg
       }
 
       void fix_edge(Edge<Scalar> e) {
-         // TODO: remove it
-         if (e->twin_edge == nullptr) {
+         if (e->twin_edge->start->is_inf_point || e->start->is_inf_point) {
             return;
          }
          std::cout << "Fix edge : " << e->start->to_point() << " " << e->next_edge->start->to_point() << " " << e->next_edge->next_edge->start->to_point();
@@ -235,7 +259,7 @@ namespace cg
          // TODO: make it fast (maybe you shouldn't check all the points)
          for (auto v : vertexes) {
             if (e->start == v || e->next_edge->start == v
-                || e->next_edge->next_edge->start == v) continue;
+                || e->next_edge->next_edge->start == v || v->is_inf_point || e->next_edge->next_edge->start->is_inf_point) continue;
 
             if (is_inside(e->start, e->next_edge->start, e->next_edge->next_edge->start, v)) {
                return true;
@@ -264,25 +288,29 @@ namespace cg
 
       // it will be removed after modification
       void init_with_triangle() {
-         face<Scalar> * inf_face = new face<Scalar>();
-         Face<Scalar> inf_face_ptr(inf_face);
+         auto face1 = make_face(vertexes[1], vertexes[2], vertexes[0]), face2 = make_face(vertexes[2], vertexes[1], vertexes[0]);
 
-         vertex<Scalar> * a = new vertex<Scalar>(-400, -300);
-         vertex<Scalar> * b = new vertex<Scalar>(400, -300);
-         vertex<Scalar> * c = new vertex<Scalar>(0, 300);
-         Vertex<Scalar> a_ptr(a), b_ptr(b), c_ptr(c);
+         set_twins(face1->inc_edge, face2->inc_edge);
+         set_twins(face1->inc_edge->next_edge, face2->inc_edge->next_edge->next_edge);
+         set_twins(face1->inc_edge->next_edge->next_edge, face2->inc_edge->next_edge);
+      }
 
-         edge<Scalar> * a_inside = new edge<Scalar>(a_ptr);
-         edge<Scalar> * b_inside = new edge<Scalar>(b_ptr);
-         edge<Scalar> * c_inside = new edge<Scalar>(c_ptr);
-         Edge<Scalar> a_inside_ptr(a_inside), b_inside_ptr(b_inside), c_inside_ptr(c_inside);
-
-         a_inside->init_members(nullptr, b_inside_ptr, inf_face_ptr);
-         b_inside->init_members(nullptr, c_inside_ptr, inf_face_ptr);
-         c_inside->init_members(nullptr, a_inside_ptr, inf_face_ptr);
-
-         inf_face->inc_edge = a_inside_ptr;
-         faces.push_back(inf_face_ptr);
+      // it doesn't set twins
+      Face<Scalar> make_face(Vertex<Scalar> a, Vertex<Scalar> b, Vertex<Scalar> c) {
+         Vertex<Scalar> vertexes [3] = {a, b, c};
+         Face<Scalar> cur_face_ptr(new face<Scalar>());
+         Edge<Scalar> edges[3];
+         edge<Scalar> * edges_p[3];
+         for (int i = 0; i < 3; i++) {
+            edges_p[i] = new edge<Scalar>(vertexes[i]);
+            edges[i] = Edge<Scalar>(edges_p[i]);
+         }
+         for (int i = 0; i < 3; i++) {
+            edges[i]->init_members(edges[(i + 1) % 3], cur_face_ptr);
+         }
+         cur_face_ptr->inc_edge = edges[0];
+         faces.push_back(cur_face_ptr);
+         return cur_face_ptr;
       }
 
       bool contains_point(point_2t<Scalar> const & p) {
@@ -297,8 +325,24 @@ namespace cg
 
       std::vector<triangle_2t<Scalar> > get_triangulation() {
          std::vector<triangle_2t<Scalar> > res;
+         std::cout << "Faces :" << std::endl;
+         //      for (auto t : res) std::cout << t << std::endl;
          for (int i = 0; i < faces.size(); i++) {
             Face<Scalar> cur_face = faces[i];
+            auto cur_edge = cur_face->inc_edge;
+            for (int j = 0; j < 3; j++) {
+               if (cur_edge->start->is_inf_point) {
+                  std::cout << "(inf) ";
+               } else {
+                  std::cout << cur_edge->start->to_point();
+               }
+               cur_edge = cur_edge->next_edge;
+            }
+            std::cout << std::endl;
+
+            if (cur_face->inc_edge->start->is_inf_point || cur_face->inc_edge->next_edge->start->is_inf_point ||
+                cur_face->inc_edge->next_edge->next_edge->start->is_inf_point) continue;
+
             res.push_back(triangle_2t<Scalar>(cur_face->inc_edge->start->to_point(),
                                               cur_face->inc_edge->next_edge->start->to_point(), cur_face->inc_edge->next_edge->next_edge->start->to_point()));
          }
@@ -314,9 +358,7 @@ namespace cg
    struct delaunay_triangulation
    {
 
-      delaunay_triangulation() {
-         tr_cell.init_with_triangle();
-      }
+      delaunay_triangulation() {}
 
       void add_point(point_2t<Scalar> p)
       {

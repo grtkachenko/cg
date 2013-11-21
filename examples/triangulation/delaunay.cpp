@@ -101,7 +101,7 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
 
    void make_triangulation() {
       res = tr.get_delaunay_triangulation();
-      for (auto t : res) std::cout << t << std::endl;
+//      for (auto t : res) std::cout << t << std::endl;
    }
 
    bool on_release(const point_2f & p)
