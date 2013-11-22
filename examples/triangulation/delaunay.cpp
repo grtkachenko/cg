@@ -122,7 +122,7 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
             selected_points.erase(selected_points.begin() + 1);
             return false;
          } else {
-            tr.add_constraint(selected_points[0], selected_points[1]);
+//            tr.add_constraint(selected_points[0], selected_points[1]);
             prev_selected_points = selected_points;
             selected_points.clear();
             return true;

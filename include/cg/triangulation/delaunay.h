@@ -281,10 +281,18 @@ namespace cg
       }
 
       void fix_edge(Edge<Scalar> e) {
-         if (e->twin_edge->start->is_inf_point || e->start->is_inf_point) {
+         std::cout << "Fix edge : " << e->start->to_point() << " " << e->next_edge->start->to_point() << " " << e->next_edge->next_edge->start->to_point();
+
+         if (e->twin_edge->start->is_inf_point || e->start->is_inf_point ||
+             e->next_edge->next_edge->start->is_inf_point ||
+             (!constraints.empty() && (e == constraints.back() || e->next_edge == constraints.back() || e->next_edge->next_edge == constraints.back() ||
+                                       e == constraints.back()->twin_edge || e->next_edge == constraints.back()->twin_edge || e->next_edge->next_edge == constraints.back()->twin_edge))) {
+            std::cout << std::endl;
             return;
          }
-         std::cout << "Fix edge : " << e->start->to_point() << " " << e->next_edge->start->to_point() << " " << e->next_edge->next_edge->start->to_point();
+
+         std::cout << " (it passes first check) ";
+
 
          if (is_edge_bad(e)) {
             std::cout << " it's BAD edge" << std::endl;
@@ -410,8 +418,31 @@ namespace cg
          }
          return nullptr;
       }
+      void add_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb) {
+         add_constraint_without_fixing(pa, pb);
+         for (auto f : faces) {
+            auto cur_edge = f->inc_edge;
+            for (int i = 0; i < 3; i++) {
+               if (cur_edge->start->to_point() == pa && cur_edge->next_edge->start->to_point() == pb) {
+                  constraints.push_back(cur_edge);
+                  std::cout << "Сonstraint is " << cur_edge->start->to_point() << " " << cur_edge->next_edge->start->to_point() << std::endl;
+                  std::cout << "Fixes edges of constraint" << std::endl;
 
-      void add_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
+//                  fix_edge(cur_edge->next_edge->twin_edge);
+//                  fix_edge(cur_edge->next_edge->next_edge->twin_edge);
+//                  fix_edge(cur_edge->twin_edge->next_edge->twin_edge);
+//                  fix_edge(cur_edge->twin_edge->next_edge->next_edge->twin_edge);
+                  return;
+
+               }
+               cur_edge = cur_edge->next_edge;
+            }
+         }
+
+
+      }
+
+      void add_constraint_without_fixing(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
          segment_2t<Scalar> constraint_segment(pa, pb);
          auto face_a = faces[find_face_that_intersects_segment(find_face(pa, true).first, constraint_segment)];
          auto cur_face = face_a;
@@ -444,7 +475,11 @@ namespace cg
             flip(e);
          }
 
-         if (is_first) add_constraint(pb, pa, false);
+         if (is_first) add_constraint_without_fixing(pb, pa, false);
+
+         if (intersect_edges.size() != 0) {
+            add_constraint_without_fixing(pa, pb, true);
+         }
       }
 
       int find_face_that_intersects_segment(std::vector<int> num_faces, segment_2t<Scalar> & seg) {
@@ -502,6 +537,7 @@ namespace cg
    private:
       std::vector<Face<Scalar>> faces;
       std::vector<Vertex<Scalar>> vertexes;
+      std::vector<Edge<Scalar>> constraints;
    };
 
    template <class Scalar>
