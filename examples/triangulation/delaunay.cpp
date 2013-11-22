@@ -17,7 +17,14 @@ using cg::triangle_2;
 
 struct delaunay_viewer : cg::visualization::viewer_adapter
 {
-   delaunay_viewer() : is_correct_triangulation(true) { make_triangulation(); }
+   delaunay_viewer() : is_correct_triangulation(true) {
+//      tr.add_point(point_2(0, 1));
+//      tr.add_point(point_2(30, 60));
+//      tr.add_point(point_2(60, 0));
+//      tr.add_point(point_2(90, 60));
+//      tr.add_point(point_2(120, 40));
+      make_triangulation();
+   }
 
    void draw(cg::visualization::drawer_type & drawer) const
    {
@@ -25,14 +32,14 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
       index_of_current_point = -1;
       for (int i = 0; i < pts.size(); i++) {
          point_2 p = pts[i];
-         if (std::find(selected_points.begin(), selected_points.end(), p) != selected_points.end()) continue;
-
          bool same = (abs(p.x - cur.x) < eps && abs(p.y - cur.y) < eps);\
-         drawer.set_color(!same ? Qt::white : Qt::yellow);
-         drawer.draw_point(p, !same ? 6 : 12);
          if (same) {
             index_of_current_point = i;
          }
+         if (std::find(selected_points.begin(), selected_points.end(), p) != selected_points.end()) continue;
+
+         drawer.set_color(!same ? Qt::white : Qt::yellow);
+         drawer.draw_point(p, !same ? 6 : 12);
       }
 
       for (triangle_2 t : res) {
@@ -47,7 +54,7 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
          drawer.set_color(Qt::green);
          for (point_2 p : prev_selected_points) drawer.draw_point(p, 12);
          if (prev_selected_points.size() == 2) {
-            drawer.draw_line(prev_selected_points[0], prev_selected_points[1]);
+//            drawer.draw_line(prev_selected_points[0], prev_selected_points[1]);
          }
       } else {
          drawer.set_color(Qt::red);
@@ -86,31 +93,37 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
 
    bool on_release(const point_2f & p)
    {
+      std::cout << index_of_current_point << std::endl;
       if (index_of_current_point != -1) {
          selected_points.push_back(pts[index_of_current_point]);
-         check_constaint_for_ready();
-         return true;
+         if (!check_constaint_for_ready()) {
+             return true;
+         }
+
+      } else {
+         pts.push_back(p);
+         tr.add_point(p);
       }
 
-      pts.push_back(p);
-      tr.add_point(p);
       make_triangulation();
       red_res.clear();
       is_correct_triangulation = check_triangulation();
       return true;
    }
 
-   void check_constaint_for_ready() {
+   bool check_constaint_for_ready() {
       if (selected_points.size() == 2) {
          if (selected_points[0] == selected_points[1]) {
             selected_points.erase(selected_points.begin() + 1);
+            return false;
          } else {
-            // LYALYALYA
+            tr.add_constraint(selected_points[0], selected_points[1]);
             prev_selected_points = selected_points;
-
             selected_points.clear();
+            return true;
          }
       }
+      return true;
    }
 
    bool on_move(const point_2f & p)

@@ -10,6 +10,7 @@
 #include <memory>
 #include <boost/optional.hpp>
 #include <exception>
+#include <cg/operations/has_intersection/segment_segment.h>
 
 namespace cg
 {
@@ -31,6 +32,10 @@ namespace cg
       void init_members(Edge<Scalar> _next_edge, Face<Scalar> _inc_face) {
          next_edge = _next_edge;
          inc_face = _inc_face;
+      }
+
+      segment_2t<Scalar> to_segment() {
+         return segment_2t<Scalar>(start->to_point(), next_edge->start->to_point());
       }
 
       //members
@@ -98,7 +103,7 @@ namespace cg
                   continue;
                }
 
-               if (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_RIGHT) {
+               if (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_LEFT) {
                   ok = false;
                   break;
                }
@@ -109,7 +114,7 @@ namespace cg
                cur = f->inc_edge;
                for (int j = 0; j < 3; j++) {
                   if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
-                      cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT) {
+                      cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_LEFT) {
                      if (min_max_edge.second == nullptr) {
                         min_max_edge.first = cur;
                          min_max_edge.second = cur;
@@ -290,7 +295,17 @@ namespace cg
          }
       }
 
-      void flip(Edge<Scalar> e) {
+      bool more_than_pi(point_2t<Scalar> const & a, point_2t<Scalar> const & b, point_2t<Scalar> const & c) {
+         return orientation(a, b, c) != CG_RIGHT;
+      }
+
+      bool flip(Edge<Scalar> e) {
+         // check for flip correctness
+         for (int i = 0; i < 2; i++) {
+            if (more_than_pi(e->next_edge->next_edge->start->to_point(), e->next_edge->start->to_point(), e->twin_edge->next_edge->next_edge->start->to_point())) return false;
+            e = e->twin_edge;
+         }
+
          //creating edge
          edge<Scalar> * new_edge = new edge<Scalar>(e->next_edge->next_edge->start);
          edge<Scalar> * twin = new edge<Scalar>(e->twin_edge->next_edge->next_edge->start);
@@ -317,6 +332,8 @@ namespace cg
          e->next_edge->next_edge = new_edge_ptr;
          e->twin_edge->next_edge->next_edge->next_edge = e->next_edge;
          e->twin_edge->next_edge->next_edge = twin_ptr;
+
+         return true;
       }
 
       bool is_edge_bad(Edge<Scalar> e, bool is_twin = false) {
@@ -353,7 +370,6 @@ namespace cg
          e2->twin_edge = e1;
       }
 
-      // it will be removed after modification
       void init_with_triangle() {
          auto face1 = make_face(vertexes[1], vertexes[2], vertexes[0]), face2 = make_face(vertexes[2], vertexes[1], vertexes[0]);
          set_twins(face1->inc_edge, face2->inc_edge);
@@ -379,13 +395,72 @@ namespace cg
          return cur_face_ptr;
       }
 
-      bool contains_point(point_2t<Scalar> const & p) {
+      Vertex<Scalar> find_point(point_2t<Scalar> const & p) {
          for (auto v : vertexes) {
             if (v->to_point() == p) {
-               return true;
+               return v;
             }
          }
-         return false;
+         return nullptr;
+      }
+
+      void add_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
+         segment_2t<Scalar> constraint_segment(pa, pb);
+         auto face_a = faces[find_face_that_intersects_segment(find_face(pa).first, constraint_segment)];
+         auto cur_face = face_a;
+
+         std::vector<Edge<Scalar>> intersect_edges;
+         while (true) {
+            bool found = false;
+            auto cur_edge = cur_face->inc_edge;
+            for (int i = 0; i < 3; i++) {
+               auto cur_seg = cur_edge->to_segment();
+               if (!are_segments_have_one_common_points(cur_seg, constraint_segment) && has_intersection(cur_seg, constraint_segment)
+                   && (intersect_edges.empty() || intersect_edges.back()->twin_edge != cur_edge)) {
+
+                  if (!contains(constraint_segment, cur_seg[0]) || !contains(constraint_segment, cur_seg[1]))  {
+                     intersect_edges.push_back(cur_edge);
+                     cur_face = cur_edge->twin_edge->inc_face;
+                     found = true;
+                  } else {
+                     found = false;
+                  }
+
+                  break;
+               }
+               cur_edge = cur_edge->next_edge;
+            }
+            if (!found) break;
+         }
+
+         for (auto e : intersect_edges) {
+            flip(e);
+         }
+
+         if (is_first) add_constraint(pb, pa, false);
+      }
+
+      int find_face_that_intersects_segment(std::vector<int> num_faces, segment_2t<Scalar> & seg) {
+         for (int cur : num_faces) {
+            auto cur_edge = faces[cur]->inc_edge;
+            for (int i = 0; i < 3; i++) {
+               auto cur_seg = cur_edge->to_segment();
+               if (!are_segments_have_one_common_points(cur_seg, seg) && !cur_edge->start->is_inf_point &&
+                   !cur_edge->next_edge->start->is_inf_point && has_intersection(cur_seg, seg)) {
+                  return cur;
+               }
+               cur_edge = cur_edge->next_edge;
+            }
+         }
+         return -1;
+      }
+
+      bool are_segments_have_one_common_points(segment_2t<Scalar> & seg1, segment_2t<Scalar> & seg2) {
+         int count = 0;
+         for (int j = 0; j < 2; j++)
+            for (int k = 0; k < 2; k++)
+               if (seg1[j] == seg2[k]) count++;
+         return count == 1;
       }
 
 
@@ -395,7 +470,7 @@ namespace cg
          for (int i = 0; i < faces.size(); i++) {
             Face<Scalar> cur_face = faces[i];
 
-            // DEBUG OUTPUT STARTS
+            // DEBUG OUTPUT STARTED
             auto cur_edge = cur_face->inc_edge;
             for (int j = 0; j < 3; j++) {
                if (cur_edge->start->is_inf_point) {
@@ -423,14 +498,19 @@ namespace cg
    };
 
    template <class Scalar>
-   struct delaunay_triangulation
+   struct  delaunay_triangulation
    {
 
       delaunay_triangulation() {}
 
       void add_point(point_2t<Scalar> p)
       {
-         if (!tr_cell.contains_point(p)) tr_cell.add_vertex(p);
+         if (!tr_cell.find_point(p)) tr_cell.add_vertex(p);
+      }
+
+      void add_constraint(point_2t<Scalar> a, point_2t<Scalar> b)
+      {
+         tr_cell.add_constraint(a, b);
       }
 
       std::vector<triangle_2t<Scalar> > get_delaunay_triangulation() {
