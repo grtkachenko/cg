@@ -337,8 +337,11 @@ namespace cg
       }
 
       bool is_inside(Vertex<Scalar> va, Vertex<Scalar> vb, Vertex<Scalar> vc, Vertex<Scalar> vd) {
+         return is_inside(va->to_point(), vb->to_point(), vc->to_point(), vd->to_point());
+      }
+
+      bool is_inside(point_2t<Scalar> a, point_2t<Scalar> b, point_2t<Scalar> c, point_2t<Scalar> d) {
          // TODO: make it exact (!)
-         point_2t<Scalar> a = va->to_point(), b = vb->to_point(), c = vc->to_point(), d = vd->to_point();
          double a11 = a.x - d.x, a12 = a.y - d.y, a13 = (a.x * a.x - d.x * d.x) + (a.y * a.y - d.y * d.y);
          double a21 = b.x - d.x, a22 = b.y - d.y, a23 = (b.x * b.x - d.x * d.x) + (b.y * b.y - d.y * d.y);
          double a31 = c.x - d.x, a32 = c.y - d.y, a33 = (c.x * c.x - d.x * d.x) + (c.y * c.y - d.y * d.y);
@@ -432,6 +435,11 @@ namespace cg
 
       std::vector<triangle_2t<Scalar> > get_delaunay_triangulation() {
          return tr_cell.get_triangulation();
+      }
+
+      // need for debugging (if we want to have an access to this method in case we have the instance of delaunay_triangulation)
+      bool is_inside(point_2t<Scalar> a, point_2t<Scalar> b, point_2t<Scalar> c, point_2t<Scalar> d) {
+         return tr_cell.is_inside(a, b, c, d);
       }
 
    private:

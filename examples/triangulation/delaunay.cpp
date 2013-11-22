@@ -17,83 +17,60 @@ using cg::triangle_2;
 
 struct delaunay_viewer : cg::visualization::viewer_adapter
 {
-   delaunay_viewer()
-   {
-//      tr.add_point(point_2(-50, 50));
-//      tr.add_point(point_2(-50, -50));
-//      tr.add_point(point_2(50, -50));
-//      tr.add_point(point_2(50, 50));
-//      tr.add_point(point_2(0, 84));
-//      tr.add_point(point_2(-10, -86));
-
-//      tr.add_point(point_2(-30, -10));
-//      tr.add_point(point_2(0, 1));
-//      tr.add_point(point_2(30, 0));
-//      tr.add_point(point_2(60, -10));
-
-//      tr.add_point(point_2(-30, 0));
-//      tr.add_point(point_2(30, 0));
-//      tr.add_point(point_2(0, 50));
-//      tr.add_point(point_2(-10, 80));
-//      tr.add_point(point_2(12, 76));
-
-
-//      make_triangulation();
-
-//      tr.add_point(point_2(0, -10));
-   }
+   delaunay_viewer() : is_correct_triangulation(true) { make_triangulation(); }
 
    void draw(cg::visualization::drawer_type & drawer) const
    {
-      drawer.set_color(Qt::white);
 
-      drawer.set_color(Qt::green);
+      index_of_current_point = -1;
+      for (int i = 0; i < pts.size(); i++) {
+         point_2 p = pts[i];
+         if (std::find(selected_points.begin(), selected_points.end(), p) != selected_points.end()) continue;
+
+         bool same = (abs(p.x - cur.x) < eps && abs(p.y - cur.y) < eps);\
+         drawer.set_color(!same ? Qt::white : Qt::yellow);
+         drawer.draw_point(p, !same ? 6 : 12);
+         if (same) {
+            index_of_current_point = i;
+         }
+      }
+
       for (triangle_2 t : res) {
+         drawer.set_color(Qt::blue);
+         if (std::find(red_res.begin(), red_res.end(), t) != red_res.end()) drawer.set_color(Qt::red);
          drawer.draw_line(t[0], t[1]);
          drawer.draw_line(t[0], t[2]);
          drawer.draw_line(t[2], t[1]);
       }
 
-      drawer.set_color(Qt::red);
-      for (triangle_2 t : red_res) {
-         drawer.draw_line(t[0], t[1]);
-         drawer.draw_line(t[0], t[2]);
-         drawer.draw_line(t[2], t[1]);
+      if (selected_points.empty()) {
+         drawer.set_color(Qt::green);
+         for (point_2 p : prev_selected_points) drawer.draw_point(p, 12);
+         if (prev_selected_points.size() == 2) {
+            drawer.draw_line(prev_selected_points[0], prev_selected_points[1]);
+         }
+      } else {
+         drawer.set_color(Qt::red);
+         for (point_2 p : selected_points) drawer.draw_point(p, 12);
       }
-
-
 
    }
 
    void print(cg::visualization::printer_type & p) const
    {
-      p.corner_stream() << "press mouse rbutton to add point" << cg::visualization::endl;
-      p.corner_stream() << "Is it what we are looking for? " << (check_triangulation() ? "YES!!!" : "No :(") << cg::visualization::endl;
+      p.corner_stream() << "press mouse rbutton on free space to add point" << cg::visualization::endl;
+      p.corner_stream() << "press mouse rbutton on point to complete the constraint edge" << cg::visualization::endl;
+      p.corner_stream() << "Is it what we are looking for? " << (is_correct_triangulation ? "YES!!!" : "No :(") << cg::visualization::endl;
 
    }
 
-   bool check_triangulation() const {
+   bool check_triangulation() {
       bool ans = true;
       for (triangle_2 t : res) {
          bool cur = true;
          for (triangle_2 help_t : res) {
             for (int i = 0; i < 3; i++) {
-               if (cur && t[0] != help_t[i] && t[1] != help_t[i] && t[2] != help_t[i] && is_inside(t[0], t[1], t[2], help_t[i])) {
-                  ans = cur = false;
-               }
-            }
-         }
-      }
-      return ans;
-   }
-
-   bool check_triangulation1() {
-      bool ans = true;
-      for (triangle_2 t : res) {
-         bool cur = true;
-         for (triangle_2 help_t : res) {
-            for (int i = 0; i < 3; i++) {
-               if (cur && t[0] != help_t[i] && t[1] != help_t[i] && t[2] != help_t[i] && is_inside(t[0], t[1], t[2], help_t[i])) {
+               if (cur && t[0] != help_t[i] && t[1] != help_t[i] && t[2] != help_t[i] && tr.is_inside(t[0], t[1], t[2], help_t[i])) {
                   red_res.push_back(t);
                   ans = cur = false;
                }
@@ -103,36 +80,58 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
       return ans;
    }
 
-   bool is_inside(point_2 a, point_2 b, point_2 c, point_2 d) const {
-      double a11 = a.x - d.x, a12 = a.y - d.y, a13 = (a.x * a.x - d.x * d.x) + (a.y * a.y - d.y * d.y);
-      double a21 = b.x - d.x, a22 = b.y - d.y, a23 = (b.x * b.x - d.x * d.x) + (b.y * b.y - d.y * d.y);
-      double a31 = c.x - d.x, a32 = c.y - d.y, a33 = (c.x * c.x - d.x * d.x) + (c.y * c.y - d.y * d.y);
-      return a11 * (a22 * a33 - a23 * a32) - a12 * (a21 * a33 - a23 * a31) + a13 * (a21 * a32 - a22 * a31) > 0;
-   }
-
-
-
    void make_triangulation() {
       res = tr.get_delaunay_triangulation();
-//      for (auto t : res) std::cout << t << std::endl;
    }
 
    bool on_release(const point_2f & p)
    {
-      tr.add_point(p);
+      if (index_of_current_point != -1) {
+         selected_points.push_back(pts[index_of_current_point]);
+         check_constaint_for_ready();
+         return true;
+      }
 
+      pts.push_back(p);
+      tr.add_point(p);
       make_triangulation();
       red_res.clear();
-      check_triangulation1();
-
+      is_correct_triangulation = check_triangulation();
       return true;
    }
+
+   void check_constaint_for_ready() {
+      if (selected_points.size() == 2) {
+         if (selected_points[0] == selected_points[1]) {
+            selected_points.erase(selected_points.begin() + 1);
+         } else {
+            // LYALYALYA
+            prev_selected_points = selected_points;
+
+            selected_points.clear();
+         }
+      }
+   }
+
+   bool on_move(const point_2f & p)
+   {
+      cur = p;
+      return true;
+   }
+
 
 private:
    cg::delaunay_triangulation<double> tr;
    std::vector<triangle_2> res;
    std::vector<triangle_2> red_res;
    std::vector<point_2> pts;
+   bool is_correct_triangulation;
+   point_2 cur;
+   mutable int index_of_current_point;
+   std::vector<point_2> selected_points;
+   std::vector<point_2> prev_selected_points;
+
+   const double eps = 8;
 
 };
 
