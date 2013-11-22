@@ -41,10 +41,15 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
          drawer.set_color(!same ? Qt::white : Qt::yellow);
          drawer.draw_point(p, !same ? 6 : 12);
       }
-
+      drawer.set_color(Qt::blue);
       for (triangle_2 t : res) {
-         drawer.set_color(Qt::blue);
-         if (std::find(red_res.begin(), red_res.end(), t) != red_res.end()) drawer.set_color(Qt::red);
+         if (std::find(red_res.begin(), red_res.end(), t) != red_res.end()) continue;
+         drawer.draw_line(t[0], t[1]);
+         drawer.draw_line(t[0], t[2]);
+         drawer.draw_line(t[2], t[1]);
+      }
+      drawer.set_color(Qt::red);
+      for (triangle_2 t : red_res) {
          drawer.draw_line(t[0], t[1]);
          drawer.draw_line(t[0], t[2]);
          drawer.draw_line(t[2], t[1]);
@@ -54,7 +59,7 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
          drawer.set_color(Qt::green);
          for (point_2 p : prev_selected_points) drawer.draw_point(p, 12);
          if (prev_selected_points.size() == 2) {
-//            drawer.draw_line(prev_selected_points[0], prev_selected_points[1]);
+            drawer.draw_line(prev_selected_points[0], prev_selected_points[1]);
          }
       } else {
          drawer.set_color(Qt::red);

@@ -48,7 +48,12 @@ namespace cg
    bool less(Edge<Scalar> e1, Edge<Scalar> e2) {
       point_2t<Scalar> e1_start = e1->start->to_point(), e1_end = e1->next_edge->start->to_point();
       point_2t<Scalar> e2_start = e2->start->to_point(), e2_end = e2->next_edge->start->to_point();
-      return cg::orientation(e1_start, e1_end, e1_end + (e2_end - e2_start)) == cg::CG_RIGHT;
+      auto res = cg::orientation(e1_start, e1_end, e1_end + (e2_end - e2_start));
+      if (res != cg::CG_COLLINEAR) {
+         return res == cg::CG_RIGHT;
+      } else {
+         return (e1_end - e1_start) * (e2_start - e1_start) > 0;
+      }
    }
 
    template <class Scalar>
@@ -87,7 +92,7 @@ namespace cg
 
 
       // returns vector of indexes + pair of min and max edge (in case of point out of polygon)
-      std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> find_face(point_2t<Scalar> const & p) {
+      std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> find_face(point_2t<Scalar> const & p, bool on_border = false) {
          std::vector<int> found_faces;
          std::pair<Edge<Scalar>, Edge<Scalar>> min_max_edge;
 
@@ -103,7 +108,8 @@ namespace cg
                   continue;
                }
 
-               if (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_LEFT) {
+               if ((!on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_LEFT) ||
+               (on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_RIGHT)) {
                   ok = false;
                   break;
                }
@@ -114,7 +120,8 @@ namespace cg
                cur = f->inc_edge;
                for (int j = 0; j < 3; j++) {
                   if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
-                      cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_LEFT) {
+                      ((!on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_LEFT) ||
+                                     (on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT))) {
                      if (min_max_edge.second == nullptr) {
                         min_max_edge.first = cur;
                          min_max_edge.second = cur;
@@ -406,7 +413,7 @@ namespace cg
 
       void add_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
          segment_2t<Scalar> constraint_segment(pa, pb);
-         auto face_a = faces[find_face_that_intersects_segment(find_face(pa).first, constraint_segment)];
+         auto face_a = faces[find_face_that_intersects_segment(find_face(pa, true).first, constraint_segment)];
          auto cur_face = face_a;
 
          std::vector<Edge<Scalar>> intersect_edges;
@@ -415,7 +422,7 @@ namespace cg
             auto cur_edge = cur_face->inc_edge;
             for (int i = 0; i < 3; i++) {
                auto cur_seg = cur_edge->to_segment();
-               if (!are_segments_have_one_common_points(cur_seg, constraint_segment) && has_intersection(cur_seg, constraint_segment)
+               if (common_points_number(cur_seg, constraint_segment) != 1 && has_intersection(cur_seg, constraint_segment)
                    && (intersect_edges.empty() || intersect_edges.back()->twin_edge != cur_edge)) {
 
                   if (!contains(constraint_segment, cur_seg[0]) || !contains(constraint_segment, cur_seg[1]))  {
@@ -445,7 +452,7 @@ namespace cg
             auto cur_edge = faces[cur]->inc_edge;
             for (int i = 0; i < 3; i++) {
                auto cur_seg = cur_edge->to_segment();
-               if (!are_segments_have_one_common_points(cur_seg, seg) && !cur_edge->start->is_inf_point &&
+               if (common_points_number(cur_seg, seg) != 1 && !cur_edge->start->is_inf_point &&
                    !cur_edge->next_edge->start->is_inf_point && has_intersection(cur_seg, seg)) {
                   return cur;
                }
@@ -455,12 +462,12 @@ namespace cg
          return -1;
       }
 
-      bool are_segments_have_one_common_points(segment_2t<Scalar> & seg1, segment_2t<Scalar> & seg2) {
+      int common_points_number(segment_2t<Scalar> & seg1, segment_2t<Scalar> & seg2) {
          int count = 0;
          for (int j = 0; j < 2; j++)
             for (int k = 0; k < 2; k++)
                if (seg1[j] == seg2[k]) count++;
-         return count == 1;
+         return count;
       }
 
 
