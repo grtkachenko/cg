@@ -94,7 +94,6 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
 
    bool on_release(const point_2f & p)
    {
-      std::cout << index_of_current_point << std::endl;
       if (index_of_current_point != -1) {
          selected_points.push_back(pts[index_of_current_point]);
          if (!check_constaint_for_ready()) {
@@ -160,10 +159,7 @@ private:
    std::vector<point_2> selected_points;
    std::map<point_2, int> in_constraint;
    std::vector<segment_2> constraints;
-
-
    const double eps = 8;
-
 };
 
 int main(int argc, char ** argv)

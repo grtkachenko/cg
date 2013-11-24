@@ -324,10 +324,12 @@ namespace cg
       }
 
       void fix_edge(Edge<Scalar> e) {
-         if ((!constraints.empty() && (e->to_segment() == constraints.back()->to_segment()))) {
-            std::cout << std::endl;
-            return;
+         for (auto c : constraints) {
+            if (e->to_segment() == c->to_segment()) {
+               return;
+            }
          }
+
          if (is_edge_bad(e)) {
             Edge<Scalar> edges_to_fix[4];
             edges_to_fix[0] = e->twin_edge->next_edge;
@@ -468,9 +470,16 @@ namespace cg
       }
 
       void delete_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb) {
-         auto constraint = constraints.back();
-         constraints.clear();
-         fix_edge(constraint);
+         segment_2t<Scalar> constraint_segment(pa, pb);
+         for (int i = 0; i < constraints.size(); i++) {
+            if (constraints[i]->to_segment() == constraint_segment) {
+               auto constraint = constraints[i];
+               constraints.erase(constraints.begin() + i);
+               fix_edge(constraint);
+               return;
+            }
+         }
+
       }
 
       void add_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb) {
