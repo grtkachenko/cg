@@ -119,10 +119,13 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
    bool check_constaint_for_ready() {
       if (selected_points.size() == 2) {
          if (selected_points[0] == selected_points[1]) {
-            selected_points.erase(selected_points.begin() + 1);
-            return false;
+            std::cout << "Deleting point " << selected_points[0] << std::endl;
+            pts.erase(std::find(pts.begin(), pts.end(), selected_points[0]));
+            tr.delete_point(selected_points[0]);
+            selected_points.clear();
+            return true;
          } else {
-//            tr.add_constraint(selected_points[0], selected_points[1]);
+            tr.add_constraint(selected_points[0], selected_points[1]);
             prev_selected_points = selected_points;
             selected_points.clear();
             return true;

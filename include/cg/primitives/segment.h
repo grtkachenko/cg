@@ -34,7 +34,7 @@ namespace cg
    template <class Scalar>
    bool operator == (segment_2t<Scalar> const & a, segment_2t<Scalar> const & b)
    {
-      return (a[0] == b[0]) && (a[1] == b[1]);
+      return (a[0] == b[0]) && (a[1] == b[1]) || (a[0] == b[1]) && (a[1] == b[0]);
    }
 
    template <class Scalar>
