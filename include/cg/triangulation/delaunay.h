@@ -361,8 +361,7 @@ namespace cg
 
 
 
-         if ((!constraints.empty() && (e == constraints.back() || e->next_edge == constraints.back() || e->next_edge->next_edge == constraints.back() ||
-                                       e == constraints.back()->twin_edge || e->next_edge == constraints.back()->twin_edge || e->next_edge->next_edge == constraints.back()->twin_edge))) {
+         if ((!constraints.empty() && (e->to_segment() == constraints.back()->to_segment()))) {
             std::cout << std::endl;
             return;
          }
@@ -520,18 +519,16 @@ namespace cg
       }
       void add_constraint(point_2t<Scalar> pa, point_2t<Scalar> pb) {
          add_constraint_without_fixing(pa, pb);
+
          for (auto f : faces) {
             auto cur_edge = f->inc_edge;
             for (int i = 0; i < 3; i++) {
                if (cur_edge->start->to_point() == pa && cur_edge->next_edge->start->to_point() == pb) {
                   constraints.push_back(cur_edge);
-                  std::cout << "Сonstraint is " << cur_edge->start->to_point() << " " << cur_edge->next_edge->start->to_point() << std::endl;
-                  std::cout << "Fixes edges of constraint" << std::endl;
-
-//                  fix_edge(cur_edge->next_edge->twin_edge);
-//                  fix_edge(cur_edge->next_edge->next_edge->twin_edge);
-//                  fix_edge(cur_edge->twin_edge->next_edge->twin_edge);
-//                  fix_edge(cur_edge->twin_edge->next_edge->next_edge->twin_edge);
+                  for (auto e : to_fix) {
+                     std::cout << "CONSTRAINT " << e->to_segment() << std::endl;
+                     fix_edge(e);
+                  }
                   return;
 
                }
@@ -541,7 +538,7 @@ namespace cg
 
 
       }
-
+      std::vector<Edge<Scalar>> to_fix;
       void add_constraint_without_fixing(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
          segment_2t<Scalar> constraint_segment(pa, pb);
          auto face_a = faces[find_face_that_intersects_segment(find_face(pa, true).first, constraint_segment)];
@@ -572,7 +569,7 @@ namespace cg
          }
 
          for (auto e : intersect_edges) {
-            flip(e);
+            to_fix.push_back(flip(e));
          }
 
          if (is_first) add_constraint_without_fixing(pb, pa, false);
