@@ -25,7 +25,7 @@ TEST(delaunay, uniform)
 {
    for(size_t i = 0; i < 10; ++i)
    {
-      vector<point_2> pts = uniform_points(50);
+      vector<point_2> pts = uniform_points(100);
       delaunay_triangulation<double> tr;
       for(auto pt : pts)
       {

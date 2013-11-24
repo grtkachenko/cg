@@ -13,7 +13,7 @@
 using cg::point_2f;
 using cg::point_2;
 using cg::triangle_2;
-
+using cg::segment_2;
 
 struct delaunay_viewer : cg::visualization::viewer_adapter
 {
@@ -55,16 +55,12 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
          drawer.draw_line(t[2], t[1]);
       }
 
-      if (selected_points.empty()) {
-         drawer.set_color(Qt::green);
-         for (point_2 p : prev_selected_points) drawer.draw_point(p, 12);
-         if (prev_selected_points.size() == 2) {
-            drawer.draw_line(prev_selected_points[0], prev_selected_points[1]);
-         }
-      } else {
-         drawer.set_color(Qt::red);
-         for (point_2 p : selected_points) drawer.draw_point(p, 12);
-      }
+
+      drawer.set_color(Qt::red);
+      for (point_2 p : selected_points) drawer.draw_point(p, 12);
+
+      drawer.set_color(Qt::white);
+      for (auto s : constraints) drawer.draw_line(s[0], s[1]);
 
    }
 
@@ -120,13 +116,25 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
       if (selected_points.size() == 2) {
          if (selected_points[0] == selected_points[1]) {
             std::cout << "Deleting point " << selected_points[0] << std::endl;
-            pts.erase(std::find(pts.begin(), pts.end(), selected_points[0]));
-            tr.delete_point(selected_points[0]);
+
+            if (in_constraint[selected_points[0]] == 0) {
+               tr.delete_point(selected_points[0]);
+               pts.erase(std::find(pts.begin(), pts.end(), selected_points[0]));
+            }
             selected_points.clear();
             return true;
          } else {
-            tr.add_constraint(selected_points[0], selected_points[1]);
-            prev_selected_points = selected_points;
+            if (in_constraint[selected_points[0]] != 0 && in_constraint[selected_points[1]] != 0) {
+               tr.delete_constraint(selected_points[0], selected_points[1]);
+               in_constraint[selected_points[0]]--;
+               in_constraint[selected_points[1]]--;
+               constraints.erase(std::find(constraints.begin(), constraints.end(), segment_2(selected_points[0], selected_points[1])));
+            } else {
+               tr.add_constraint(selected_points[0], selected_points[1]);
+               in_constraint[selected_points[0]]++;
+               in_constraint[selected_points[1]]++;
+               constraints.push_back(segment_2(selected_points[0], selected_points[1]));
+            }
             selected_points.clear();
             return true;
          }
@@ -150,7 +158,9 @@ private:
    point_2 cur;
    mutable int index_of_current_point;
    std::vector<point_2> selected_points;
-   std::vector<point_2> prev_selected_points;
+   std::map<point_2, int> in_constraint;
+   std::vector<segment_2> constraints;
+
 
    const double eps = 8;
 
