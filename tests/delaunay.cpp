@@ -23,7 +23,7 @@ bool is_delaunay_triang(const vector<triangle_2> & faces, const vector<point_2> 
 
 TEST(delaunay, uniform)
 {
-   vector<point_2> pts = uniform_points(1000);
+   vector<point_2> pts = uniform_points(200);
    delaunay_triangulation<double> tr;
    for(auto pt : pts)
    {

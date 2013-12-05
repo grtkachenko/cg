@@ -100,9 +100,11 @@ namespace cg
       }
 
       // returns vector of indexes + pair of min and max edge (in case of point out of polygon)
-      std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> find_face(point_2t<Scalar> const & p, bool on_border = false) {
+      std::pair<bool, std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>> find_face(point_2t<Scalar> const & p) {
          std::vector<int> found_faces;
          std::pair<Edge<Scalar>, Edge<Scalar>> min_max_edge;
+         bool find_containts = false;
+
 
          for (int i = 0; i < faces.size(); i++) {
             auto f = faces[i];
@@ -111,25 +113,42 @@ namespace cg
             bool ok = true;
             for (int j = 0; j < 3; j++) {
                if (cur->start->is_inf_point || cur->next_edge->start->is_inf_point) {
-                  cur = cur->next_edge;
                   f->is_inf_face = true;
+               }
+               cur = cur->next_edge;
+            }
+            for (int j = 0; j < 3; j++) {
+               if (cur->start->is_inf_point || cur->next_edge->start->is_inf_point) {
+                  cur = cur->next_edge;
                   continue;
                }
 
-               if ((!on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_LEFT) ||
-               (on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_RIGHT)) {
+               if (cg::contains(cur->to_segment(), p)) {
+                  if (!find_containts) {
+                     found_faces.clear();
+                     find_containts = true;
+                     found_faces.push_back(i);
+                     break;
+                  } else {
+                     found_faces.push_back(i);
+                     std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> second_ans(found_faces, min_max_edge);
+                     return std::pair<bool, std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>>(true, second_ans);
+                  }
+               }
+
+               if (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_LEFT) {
                   ok = false;
-                  break;
                }
                cur = cur->next_edge;
             }
 
             if (f->is_inf_face) {
                cur = f->inc_edge;
+               ok = false;
                for (int j = 0; j < 3; j++) {
                   if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
-                      ((!on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_LEFT) ||
-                                     (on_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT))) {
+                      (cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT)) {
+                     ok = true;
                      if (min_max_edge.second == nullptr) {
                         min_max_edge.first = cur;
                          min_max_edge.second = cur;
@@ -144,12 +163,24 @@ namespace cg
             }
 
 
-            if (ok) {
+            if (ok && !find_containts) {
                found_faces.push_back(i);
             }
 
          }
-         return std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>(found_faces, min_max_edge);
+         std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>> second_ans(found_faces, min_max_edge);
+         return std::pair<bool, std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>>(false, second_ans);
+      }
+
+      Edge<Scalar> find_non_inf_edge(Face<Scalar> face) {
+         auto cur = face->inc_edge;
+         for (int i = 0; i < 3; i++) {
+            if (cur->start->is_inf_point || cur->next_edge->start->is_inf_point) {
+               cur = cur->next_edge;
+            } else {
+               return cur;
+            }
+         }
       }
 
       void add_vertex(point_2t<Scalar> const & p) {
@@ -167,17 +198,93 @@ namespace cg
          auto find_face_res = find_face(p);
 
          // it shouldn't be empty
-         auto index = find_face_res.first;
+         auto index = find_face_res.second.first;
+         bool on_edge = find_face_res.first;
+
          assert(!index.empty());
 
          // min and max edges
-         auto min_max_edge = find_face_res.second;
+         auto min_max_edge = find_face_res.second.second;
 
          // common as well (first edge of out chain and number of vertexes in chain
          Edge<Scalar> first_edge;
          int total_vertexes;
 
          if (faces[index[0]]->is_inf_face) {
+            if (index.size() == 2 && on_edge && faces[index[1]]->is_inf_face) {
+               Edge<Scalar> edge_on = find_non_inf_edge(faces[index[0]]);
+               Vertex<Scalar> old_v = edge_on->start;
+               edge_on->start = a_ptr;
+               edge_on->twin_edge->next_edge->start = a_ptr;
+               a->inc_edges = edge_on;
+
+//               edge<Scalar> * new_edge_p = new edge<Scalar>(old_v);
+//               edge<Scalar> * new_edge_twin_p = new edge<Scalar>(a);
+//               edge<Scalar> * inf_edge_p = new edge<Scalar>(a);
+//               edge<Scalar> * inf_edge_twin_p = new edge<Scalar>(vertexes[0]);
+//               Edge<Scalar> new_edge(new_edge_p), new_edge_twin(new_edge_twin_p), inf_edge(inf_edge_p), inf_edge_twin(inf_edge_twin_p);
+//               set_twins(new_edge, new_edge_twin);
+//               set_twins(inf_edge, inf_edge_twin);
+
+
+
+               return;
+
+
+//               face<Scalar> * face3_p = new face<Scalar>();
+//               face<Scalar> * face4_p = new face<Scalar>();
+//               Face<Scalar> face3(face3_p), face4(face4_p);
+//               face3->inc_edge = new_edge;
+//               face4->inc_edge = new_edge_twin;
+
+//               z
+
+
+//               new_faces[i] = Face<Scalar>(cur_face);
+//               cur_face->inc_edge = cur_edge;
+//               faces.push_back(new_faces[i]);
+
+
+
+
+
+
+//               //first face
+//               edge_on->next_edge->set_next_edge(inf_edge_twin);
+//               inf_edge_twin->set_next_edge(edge_on);
+//               inf_edge_twin->inc_face = edge_on->inc_face;
+
+//               //second face
+//               edge_on->twin_edge->next_edge->set_next_edge(inf_edge);
+//               inf_edge->set_next_edge(edge_on->twin_edge);
+//               inf_edge_twin->inc_face = edge_on->inc_face;
+
+
+
+
+
+
+
+
+//               new_edge->set_next_edge(inf_edge);
+//               new_edge->set_next_edge(inf_edge);
+
+
+
+//               a->inc_edges = new_edge_ptr;
+
+
+//               set_twins(new_edge_ptr, twin_ptr);
+//               new_edges_ptr[i] = new_edge_ptr;
+
+//               face<Scalar> * cur_face = new face<Scalar>();
+//               new_faces[i] = Face<Scalar>(cur_face);
+//               cur_face->inc_edge = cur_edge;
+//               faces.push_back(new_faces[i]);
+
+//               cur_edge = cur_edge->next_edge;
+
+            }
             auto cur_edge = min_max_edge.first;
             if (index.size() != 1) {
                min_max_edge.second->next_edge->next_edge = min_max_edge.first->next_edge->next_edge;
@@ -485,7 +592,7 @@ namespace cg
       std::vector<Edge<Scalar>> to_fix;
       void add_constraint_without_fixing(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
          segment_2t<Scalar> constraint_segment(pa, pb);
-         auto face_a = faces[find_face_that_intersects_segment(find_face(pa, true).first, constraint_segment)];
+         auto face_a = faces[find_face_that_intersects_segment(find_face(pa).second.first, constraint_segment)];
          auto cur_face = face_a;
 
          std::vector<Edge<Scalar>> intersect_edges;
@@ -549,9 +656,10 @@ namespace cg
 
       std::vector<triangle_2t<Scalar> > get_triangulation() {
          std::vector<triangle_2t<Scalar> > res;
+         std::cout << "Faces" << std::endl;
          for (int i = 0; i < faces.size(); i++) {
             Face<Scalar> cur_face = faces[i];
-
+            std::cout << cur_face->inc_edge->to_segment() << cur_face->inc_edge->next_edge->to_segment() << cur_face->inc_edge->prev_edge()->to_segment() << std::endl;
             if (cur_face->inc_edge->start->is_inf_point || cur_face->inc_edge->next_edge->start->is_inf_point ||
                 cur_face->inc_edge->next_edge->next_edge->start->is_inf_point) continue;
 
