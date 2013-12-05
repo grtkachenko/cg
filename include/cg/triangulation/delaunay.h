@@ -100,7 +100,7 @@ namespace cg
       }
 
       // returns vector of indexes + pair of min and max edge (in case of point out of polygon)
-      std::pair<bool, std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>> find_face(point_2t<Scalar> const & p) {
+      std::pair<bool, std::pair<std::vector<int>, std::pair<Edge<Scalar>, Edge<Scalar>>>> find_face(point_2t<Scalar> const & p, bool admit_same = false) {
          std::vector<int> found_faces;
          std::pair<Edge<Scalar>, Edge<Scalar>> min_max_edge;
          bool find_containts = false;
@@ -121,6 +121,12 @@ namespace cg
                if (cur->start->is_inf_point || cur->next_edge->start->is_inf_point) {
                   cur = cur->next_edge;
                   continue;
+               }
+
+               if (admit_same && (*(cur->start) == p || *(cur->next_edge->start) == p)) {
+                  f->is_inf_face = false;
+                  ok = true;
+                  break;
                }
 
                if (cg::contains(cur->to_segment(), p)) {
@@ -529,7 +535,7 @@ namespace cg
       std::vector<Edge<Scalar>> to_fix;
       void add_constraint_without_fixing(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
          segment_2t<Scalar> constraint_segment(pa, pb);
-         auto face_a = faces[find_face_that_intersects_segment(find_face(pa).second.first, constraint_segment)];
+         auto face_a = faces[find_face_that_intersects_segment(find_face(pa, true).second.first, constraint_segment)];
          auto cur_face = face_a;
 
          std::vector<Edge<Scalar>> intersect_edges;
