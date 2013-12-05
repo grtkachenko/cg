@@ -27,10 +27,10 @@ namespace cg
 
    template <class Scalar>
    struct edge {
-      edge(Vertex<Scalar> start) : start(start), exists(true) {}
+      edge(Vertex<Scalar> start) : start(start) {}
 
       void init_members(Edge<Scalar> _next_edge, Face<Scalar> _inc_face) {
-         next_edge = _next_edge;
+         set_next_edge(_next_edge);
          inc_face = _inc_face;
       }
 
@@ -38,11 +38,19 @@ namespace cg
          return segment_2t<Scalar>(start->to_point(), next_edge->start->to_point());
       }
 
+      Edge<Scalar> prev_edge() {
+         return next_edge->next_edge;
+      }
+
+      void set_next_edge(Edge<Scalar> _next_edge) {
+         next_edge = _next_edge;
+         end = _next_edge->start;
+      }
+
       //members
-      Vertex<Scalar> start;
+      Vertex<Scalar> start, end;
       Edge<Scalar> twin_edge, next_edge;
       Face<Scalar> inc_face;
-      bool exists;
    };
 
    template <class Scalar>
@@ -356,48 +364,35 @@ namespace cg
                e = e->twin_edge;
             }
          }
+         // vertex
+         e->start->inc_edges = e->twin_edge->next_edge;
+         e->twin_edge->start->inc_edges = e->next_edge;
+         e->start = e->twin_edge->prev_edge()->start;
+         e->twin_edge->start = e->prev_edge()->start;
+         e->start->inc_edges = e;
+         e->twin_edge->start->inc_edges = e->twin_edge;
 
-         //creating edge
-         edge<Scalar> * new_edge = new edge<Scalar>(e->next_edge->next_edge->start);
-         edge<Scalar> * twin = new edge<Scalar>(e->twin_edge->next_edge->next_edge->start);
-         Edge<Scalar> new_edge_ptr(new_edge), twin_ptr(twin);
-         e->next_edge->next_edge->start->inc_edges = new_edge_ptr;
-         e->twin_edge->next_edge->next_edge->start->inc_edges = twin_ptr;
-         e->next_edge->start->inc_edges = e->next_edge;
-         e->twin_edge->next_edge->start->inc_edges = e->twin_edge->next_edge;
+         //faces
+         Face<Scalar> first = e->inc_face, second = e->twin_edge->inc_face;
+         first->inc_edge = e;
+         second->inc_edge = e->twin_edge;
+         e->next_edge->inc_face = second;
+         e->twin_edge->next_edge->inc_face = first;
 
-         set_twins(new_edge_ptr, twin_ptr);
+         //nexts
+         Edge<Scalar> e_next = e->prev_edge(), e_twin_next = e->twin_edge->prev_edge();
 
-         //completed faces
-         auto first_face = e->inc_face, second_face = e->twin_edge->inc_face;
+         e->prev_edge()->set_next_edge(e->twin_edge->next_edge);
+         e->next_edge->set_next_edge(e->twin_edge);
+         e->twin_edge->prev_edge()->set_next_edge(e->next_edge);
+         e->twin_edge->next_edge->set_next_edge(e);
+         e->set_next_edge(e_next);
+         e->twin_edge->set_next_edge(e_twin_next);
 
-         first_face->inc_edge = e->next_edge;
-         second_face->inc_edge = e->twin_edge->next_edge;
-
-         e->next_edge->next_edge->inc_face = second_face;
-         e->twin_edge->next_edge->next_edge->inc_face = first_face;
-
-         new_edge_ptr->inc_face = first_face;
-         twin_ptr->inc_face = second_face;
-
-         //completed nexts
-         new_edge_ptr->next_edge = e->twin_edge->next_edge->next_edge;
-         twin_ptr->next_edge = e->next_edge->next_edge;
-
-         e->next_edge->next_edge->next_edge = e->twin_edge->next_edge;
-         e->next_edge->next_edge = new_edge_ptr;
-         e->twin_edge->next_edge->next_edge->next_edge = e->next_edge;
-         e->twin_edge->next_edge->next_edge = twin_ptr;
-
-         e->exists = false;
-         e->twin_edge->exists = false;
-
-         return new_edge_ptr;
+         return e;
       }
 
       bool is_edge_bad(Edge<Scalar> e, bool is_twin = false) {
-         if (!e->exists) return false;
-
          if (is_inside(e->start, e->next_edge->start, e->next_edge->next_edge->start, e->twin_edge->next_edge->next_edge->start) ||
              is_inside(e->twin_edge->start, e->twin_edge->next_edge->start, e->twin_edge->next_edge->next_edge->start, e->next_edge->next_edge->start)) {
             return true;
@@ -462,7 +457,7 @@ namespace cg
 
       Vertex<Scalar> find_point(point_2t<Scalar> const & p) {
          for (auto v : vertexes) {
-            if (v->to_point() == p) {
+            if (*v == p) {
                return v;
             }
          }
