@@ -11,6 +11,7 @@
 #include <boost/optional.hpp>
 #include <exception>
 #include <cg/operations/has_intersection/segment_segment.h>
+#include <cg/triangulation/is_inside.h>
 
 namespace cg
 {
@@ -413,15 +414,7 @@ namespace cg
          for (int i = 0; i < 3; i++)
             if (pts[i]->is_inf_point) return cg::orientation(pts[(i + 1) % 3]->to_point(), pts[(i + 2) % 3]->to_point(), vd->to_point()) == CG_LEFT;
 
-         return is_inside(va->to_point(), vb->to_point(), vc->to_point(), vd->to_point());
-      }
-
-      bool is_inside(point_2t<Scalar> a, point_2t<Scalar> b, point_2t<Scalar> c, point_2t<Scalar> d) {
-         // TODO: make it exact (!)
-         double a11 = a.x - d.x, a12 = a.y - d.y, a13 = (a.x * a.x - d.x * d.x) + (a.y * a.y - d.y * d.y);
-         double a21 = b.x - d.x, a22 = b.y - d.y, a23 = (b.x * b.x - d.x * d.x) + (b.y * b.y - d.y * d.y);
-         double a31 = c.x - d.x, a32 = c.y - d.y, a33 = (c.x * c.x - d.x * d.x) + (c.y * c.y - d.y * d.y);
-         return a11 * (a22 * a33 - a23 * a32) - a12 * (a21 * a33 - a23 * a31) + a13 * (a21 * a32 - a22 * a31) > 0;
+         return cg::is_inside(va->to_point(), vb->to_point(), vc->to_point(), vd->to_point());
       }
 
       void set_twins(Edge<Scalar> e1, Edge<Scalar> e2) {
@@ -629,11 +622,6 @@ namespace cg
 
       std::vector<point_2t<Scalar> > get_points() {
          return tr_cell.get_points();
-      }
-
-      // need for debugging (if we want to have an access to this method in case we have the instance of delaunay_triangulation)
-      bool is_inside(point_2t<Scalar> a, point_2t<Scalar> b, point_2t<Scalar> c, point_2t<Scalar> d) {
-         return tr_cell.is_inside(a, b, c, d);
       }
 
    private:

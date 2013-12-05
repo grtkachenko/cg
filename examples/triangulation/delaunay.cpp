@@ -85,7 +85,7 @@ struct delaunay_viewer : cg::visualization::viewer_adapter
          bool cur = true;
          for (triangle_2 help_t : res) {
             for (int i = 0; i < 3; i++) {
-               if (cur && t[0] != help_t[i] && t[1] != help_t[i] && t[2] != help_t[i] && tr.is_inside(t[0], t[1], t[2], help_t[i])) {
+               if (cur && t[0] != help_t[i] && t[1] != help_t[i] && t[2] != help_t[i] && cg::is_inside(t[0], t[1], t[2], help_t[i])) {
                   red_res.push_back(t);
                   ans = cur = false;
                }
