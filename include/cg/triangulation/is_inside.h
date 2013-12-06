@@ -53,7 +53,7 @@ namespace cg {
    };
 
    bool is_inside(point_2 const & a, point_2 const & b, point_2 const & c, point_2 const & d) {
-      if (boost::optional<bool> v = is_inside_d()(a, b, c, d))
+      if (boost::optional<bool> v = is_inside_i()(a, b, c, d))
          return *v;
 
       if (boost::optional<bool> v = is_inside_i()(a, b, c, d))
