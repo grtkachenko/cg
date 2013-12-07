@@ -104,7 +104,7 @@ TEST(delaunay, random_horizontal_line) {
 
 TEST(delaunay, random_vertical_and_horizontal_line)
 {
-   const size_t n = 100;
+   const size_t n = 600;
    delaunay_triangulation<double> tr;
 
    srand(time(0));

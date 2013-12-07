@@ -36,7 +36,7 @@ namespace cg
       }
 
       segment_2t<Scalar> to_segment() {
-         return segment_2t<Scalar>(start->to_point(), next_edge->start->to_point());
+         return segment_2t<Scalar>(*start, *(next_edge->start));
       }
 
       Edge<Scalar> prev_edge() {
@@ -57,15 +57,7 @@ namespace cg
 
    template <class Scalar>
    bool less(Edge<Scalar> e1, Edge<Scalar> e2, point_2t<Scalar> p) {
-      auto e1_start = e1->start->to_point(), e1_end = e1->next_edge->start->to_point();
-           auto e2_start = e2->start->to_point(), e2_end = e2->next_edge->start->to_point();
-           auto res = cg::orientation(e1_start, e1_end, e1_end + (e2_end - e2_start));
-           if (res != cg::CG_COLLINEAR) {
-              return res == cg::CG_RIGHT;
-           } else {
-              return (e1_end - e1_start) * (e2_start - e1_start) > 0;
-           }
-//      return cg::orientation(p, *(e1->start), *(e2->start)) == CG_LEFT;
+      return cg::orientation(*(e1->start), p, *(e2->start)) == CG_RIGHT;
    }
 
    template <class Scalar>
@@ -73,10 +65,6 @@ namespace cg
       vertex(bool is_inf_point) : is_inf_point(is_inf_point) {}
       vertex(Scalar a, Scalar b) : point_2t<Scalar>(a, b), is_inf_point(false) {}
       vertex(point_2t<Scalar> p) : point_2t<Scalar>(p), is_inf_point(false) {}
-
-      point_2t<Scalar> to_point() {
-         return point_2t<Scalar>(this->x, this->y);
-      }
 
       //members
       Edge<Scalar> inc_edges;
@@ -143,7 +131,7 @@ namespace cg
                   }
                }
 
-               if (inf_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_LEFT) {
+               if (inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) != CG_LEFT) {
                   ok = false;
                }
                cur = cur->next_edge;
@@ -154,14 +142,14 @@ namespace cg
                ok = false;
                for (int j = 0; j < 3; j++) {
                   if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
-                      ((inf_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) != CG_RIGHT) ||
-                      !inf_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_LEFT)) {
-                     if (inf_border && cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_LEFT) {
+                      ((inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) != CG_RIGHT) ||
+                      !inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) == CG_LEFT)) {
+                     if (inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) == CG_LEFT) {
                         return find_face(p, false, false);
                      }
 
-                     if ((cg::orientation(cur->start->to_point(), cur->next_edge->start->to_point(), p) == CG_COLLINEAR) &&
-                        (cur->next_edge->start->to_point() - cur->start->to_point()) * (p - cur->start->to_point()) < 0) continue;
+                     if ((cg::orientation(*(cur->start), *(cur->next_edge->start), p) == CG_COLLINEAR) &&
+                        (*(cur->next_edge->start) - *(cur->start)) * (p - *(cur->start)) < 0) continue;
                      ok = true;
                      if (min_max_edge.second == nullptr) {
                         min_max_edge.first = cur;
@@ -444,7 +432,7 @@ namespace cg
          if (!do_anyway) {
             // check for flip correctness
             for (int i = 0; i < 2; i++) {
-               if (more_than_pi(e->next_edge->next_edge->start->to_point(), e->next_edge->start->to_point(), e->twin_edge->next_edge->next_edge->start->to_point())) return nullptr;
+               if (more_than_pi(*(e->prev_edge()->start), *(e->next_edge->start), *(e->twin_edge->prev_edge()->start))) return nullptr;
                e = e->twin_edge;
             }
          }
@@ -502,9 +490,9 @@ namespace cg
          }
 
          for (int i = 0; i < 3; i++)
-            if (pts[i]->is_inf_point) return cg::orientation(pts[(i + 1) % 3]->to_point(), pts[(i + 2) % 3]->to_point(), vd->to_point()) == CG_LEFT;
+            if (pts[i]->is_inf_point) return cg::orientation(*pts[(i + 1) % 3], *pts[(i + 2) % 3], *vd) == CG_LEFT;
 
-         return cg::is_inside(va->to_point(), vb->to_point(), vc->to_point(), vd->to_point());
+         return cg::is_inside(*va, *vb, *vc, *vd);
       }
 
       void set_twins(Edge<Scalar> e1, Edge<Scalar> e2) {
@@ -639,15 +627,12 @@ namespace cg
 
       std::vector<triangle_2t<Scalar> > get_triangulation() {
          std::vector<triangle_2t<Scalar> > res;
-         //std::cout << "Faces" << std::endl;
          for (int i = 0; i < faces.size(); i++) {
             Face<Scalar> cur_face = faces[i];
-            //std::cout << cur_face->inc_edge->to_segment() << cur_face->inc_edge->next_edge->to_segment() << cur_face->inc_edge->prev_edge()->to_segment() << std::endl;
             if (cur_face->inc_edge->start->is_inf_point || cur_face->inc_edge->next_edge->start->is_inf_point ||
                 cur_face->inc_edge->next_edge->next_edge->start->is_inf_point) continue;
 
-            res.push_back(triangle_2t<Scalar>(cur_face->inc_edge->start->to_point(),
-                                              cur_face->inc_edge->next_edge->start->to_point(), cur_face->inc_edge->next_edge->next_edge->start->to_point()));
+            res.push_back(triangle_2t<Scalar>(*(cur_face->inc_edge->start), *(cur_face->inc_edge->next_edge->start), *(cur_face->inc_edge->prev_edge()->start)));
          }
          return res;
       }
@@ -668,7 +653,7 @@ namespace cg
          std::vector<point_2t<Scalar> > res;
          for (auto v : vertexes) {
             if (v->is_inf_point) continue;
-            res.push_back(v->to_point());
+            res.push_back(*v);
          }
          return res;
       }
