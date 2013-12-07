@@ -9,12 +9,12 @@
 using namespace std;
 using namespace cg;
 
-bool is_delaunay_triang(const vector<triangle_2> & faces, const vector<point_2> & pts)
-{
+bool check_for_triangulation(delaunay_triangulation<double> & tr) {
+   vector<triangle_2> faces = tr.get_delaunay_triangulation();
+   vector<point_2> pts = tr.get_points();
    for(triangle_2 t : faces)
       for(point_2 s : pts)
-         if(t[0] != s && t[1] != s && t[2] != s && is_inside(t[0], t[1], t[2], s))
-         {
+         if(t[0] != s && t[1] != s && t[2] != s && is_inside(t[0], t[1], t[2], s)) {
             cout << t << " contains " << s << endl;
             return false;
          }
@@ -25,34 +25,25 @@ TEST(delaunay, uniform)
 {
    vector<point_2> pts = uniform_points(200);
    delaunay_triangulation<double> tr;
-   for(auto pt : pts)
-   {
+   for(auto pt : pts) {
       tr.add_point(pt);
    }
-   vector<triangle_2> faces = tr.get_delaunay_triangulation();
-   vector<point_2> points = tr.get_points();
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
-   for(auto pt : pts)
-   {
+   EXPECT_TRUE(check_for_triangulation(tr));
+   for(auto pt : pts) {
       tr.delete_point(pt);
    }
-   faces = tr.get_delaunay_triangulation();
-   points = tr.get_points();
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
-
+   EXPECT_TRUE(check_for_triangulation(tr));
 }
 
 
 TEST(delaunay, circle)
 {
    const double PI = acos(-1);
-   const size_t n = 60;
+   const int n = 120;
    const double r = 100;
-
    delaunay_triangulation<double> tr;
 
-   for(size_t i = 0; i != n; ++i)
-   {
+   for(int i = 0; i < n; i++) {
       double angle = PI * 2 * i / n;
       double x = cos(angle) * r;
       double y = sin(angle) * r;
@@ -60,75 +51,56 @@ TEST(delaunay, circle)
    }
    vector<triangle_2> faces = tr.get_delaunay_triangulation();
    vector<point_2> points = tr.get_points();
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
-
+   EXPECT_TRUE(check_for_triangulation(tr));
    srand(time(0));
-
    points = tr.get_points();
    std::random_shuffle(points.begin(), points.end());
 
-   for(size_t i = 0; i != n; ++i)
-   {
+   for (int i = 0; i < n; i++) {
       tr.delete_point(points[i]);
    }
-   faces = tr.get_delaunay_triangulation();
-   points = tr.get_points();
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
+   EXPECT_TRUE(check_for_triangulation(tr));
 }
 
-TEST(delaunay, random_vertical_line)
-{
-   const size_t n = 100;
+TEST(delaunay, random_vertical_line) {
+   const int n = 100;
    delaunay_triangulation<double> tr;
-
    srand(time(0));
 
    tr.add_point({0, 0});
-   for(size_t i = 0; i < n; ++i)
-   {
-      point_2 p = {rand(), 0};
-      tr.add_point(p);
+   for (int i = 0; i < n; i++) {
+      tr.add_point({rand(), 0});
    }
-   vector<triangle_2> faces = tr.get_delaunay_triangulation();
-   vector<point_2> points = tr.get_points();
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
+   EXPECT_TRUE(check_for_triangulation(tr));
 
-//   vector<point_2> pts = tr.get_points();
+   vector<point_2> pts = tr.get_points();
 
-//   for(auto pt : pts)
-//   {
-//      tr.del_vertex(pt);
-//      vector<triangle_2> faces = tr.get_triangulation();
-//      vector<point_2> points = tr.get_points();
-//      EXPECT_TRUE(is_delaunay_triang(faces, points));
-//   }
+   for(auto pt : pts) {
+      tr.delete_point(pt);
+   }
+   EXPECT_TRUE(check_for_triangulation(tr));
 }
 
-TEST(delaunay, random_horizontal_line)
-{
-   const size_t n = 100;
-   delaunay_triangulation<double> tr;
 
+TEST(delaunay, random_horizontal_line) {
+   const int n = 100;
+   delaunay_triangulation<double> tr;
    srand(time(0));
+
    tr.add_point({0, 0});
-   for(size_t i = 0; i < n; ++i)
-   {
+   for (int i = 0; i < n; i++) {
       tr.add_point({0, rand()});
    }
-   vector<triangle_2> faces = tr.get_delaunay_triangulation();
-   vector<point_2> points = tr.get_points();
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
+   EXPECT_TRUE(check_for_triangulation(tr));
 
-//   vector<point_2> pts = tr.get_points();
+   vector<point_2> pts = tr.get_points();
 
-//   for(auto pt : pts)
-//   {
-//      tr.del_vertex(pt);
-//      vector<triangle_2> faces = tr.get_triangulation();
-//      vector<point_2> points = tr.get_points();
-//      EXPECT_TRUE(is_delaunay_triang(faces, points));
-//   }
+   for(auto pt : pts) {
+      tr.delete_point(pt);
+   }
+   EXPECT_TRUE(check_for_triangulation(tr));
 }
+
 
 TEST(delaunay, random_vertical_and_horizontal_line)
 {
@@ -137,27 +109,19 @@ TEST(delaunay, random_vertical_and_horizontal_line)
 
    srand(time(0));
    tr.add_point({0, 0});
-   for(size_t i = 0; i < n; ++i)
-   {
+   for (int i = 0; i < n; i++) {
       if (rand() % 2) {
          tr.add_point({0, rand()});
       } else {
          tr.add_point({rand(), 0});
       }
-
    }
-   vector<triangle_2> faces = tr.get_delaunay_triangulation();
+   EXPECT_TRUE(check_for_triangulation(tr));
    vector<point_2> points = tr.get_points();
-   for (auto p : tr.get_points()) std::cout << p << std::endl;
-   EXPECT_TRUE(is_delaunay_triang(faces, points));
+   std::random_shuffle(points.begin(), points.end());
 
-//   vector<point_2> pts = tr.get_points();
-
-//   for(auto pt : pts)
-//   {
-//      tr.del_vertex(pt);
-//      vector<triangle_2> faces = tr.get_triangulation();
-//      vector<point_2> points = tr.get_points();
-//      EXPECT_TRUE(is_delaunay_triang(faces, points));
-//   }
+   for (int i = 0; i < n; i++) {
+      tr.delete_point(points[i]);
+   }
+   EXPECT_TRUE(check_for_triangulation(tr));
 }
