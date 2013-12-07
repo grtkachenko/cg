@@ -144,12 +144,13 @@ namespace cg
                   if (!cur->start->is_inf_point && !cur->next_edge->start->is_inf_point &&
                       ((inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) != CG_RIGHT) ||
                       !inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) == CG_LEFT)) {
+
                      if (inf_border && cg::orientation(*(cur->start), *(cur->next_edge->start), p) == CG_LEFT) {
                         return find_face(p, false, false);
                      }
 
                      if ((cg::orientation(*(cur->start), *(cur->next_edge->start), p) == CG_COLLINEAR) &&
-                        (*(cur->next_edge->start) - *(cur->start)) * (p - *(cur->start)) < 0) continue;
+                         cg::contains(cg::segment_2t<Scalar>(*(cur->next_edge->start), p), *(cur->start))) continue;
                      ok = true;
                      if (min_max_edge.second == nullptr) {
                         min_max_edge.first = cur;
@@ -202,7 +203,6 @@ namespace cg
          // it shouldn't be empty
          auto index = find_face_res.second.first;
          bool on_edge = find_face_res.first;
-
          assert(!index.empty());
 
          // min and max edges
@@ -212,24 +212,18 @@ namespace cg
          Edge<Scalar> first_edge;
          int total_vertexes;
          Edge<Scalar> max_collin_edge = nullptr;
-         //std::cout << "One edge :" << on_edge << std::endl;
-
          if (faces[index[0]]->is_inf_face && !on_edge) {
             auto cur_edge = min_max_edge.first;
-            //std::cout << "Edges" <<std::endl;
             for (int i = 0; i < index.size(); i++) {
-               //std::cout << cur_edge->to_segment() << std::endl;
                if (cg::orientation(*(cur_edge->start), *(cur_edge->next_edge->start), p) == CG_COLLINEAR) {
                   max_collin_edge = cur_edge;
                }
                cur_edge = cur_edge->next_edge->twin_edge->next_edge;
             }
-            //std::cout << "Size of index " << index.size() << std::endl;
             if (max_collin_edge != nullptr) {
                total_vertexes = 3;
                first_edge = max_collin_edge ;
                faces.erase(std::find(faces.begin(), faces.end(), max_collin_edge->inc_face));
-               //std::cout << "MAX COLLIN " <<max_collin_edge->to_segment() << std::endl;
             } else {
                cur_edge = min_max_edge.first;
                if (index.size() != 1) {
@@ -343,19 +337,6 @@ namespace cg
             set_twins(inc_edges[0]->next_edge->twin_edge, inc_edges[0]->twin_edge->prev_edge()->twin_edge);
 
             vertexes.erase(std::find(vertexes.begin(), vertexes.end(), v));
-            //std::cout << "Faces after deleting last point" << std::endl;
-            for (auto f : faces) {
-
-               //std::cout << f->inc_edge->to_segment() << f->inc_edge->next_edge->to_segment() << f->inc_edge->prev_edge()->to_segment() << std::endl;
-            }
-            //std::cout << "Vertexes after deleting last point" << std::endl;
-            for (auto vv : vertexes) {
-               //std::cout << *vv << vv->inc_edges->to_segment() << std::endl;
-            }
-            //std::cout << "Edges after deleting last point" << std::endl;
-            for (auto e : get_edges()) {
-               //std::cout << e->prev_edge()->to_segment() << e->to_segment() << e->next_edge->to_segment() << std::endl;
-            }
             return;
          }
 
@@ -402,7 +383,6 @@ namespace cg
       }
 
       void fix_edge(Edge<Scalar> e) {
-         //std::cout << "Fix edge" << e->to_segment() << "next : " << e->next_edge->to_segment() << "prev edge :" << e->prev_edge()->to_segment() << std::endl;
          for (auto c : constraints) {
             if (e->to_segment() == c->to_segment()) {
                return;
@@ -428,7 +408,6 @@ namespace cg
       }
 
       Edge<Scalar> flip(Edge<Scalar> e, bool do_anyway = false) {
-         //std::cout << "Flip" << e->to_segment() << " and the other vertexes are " << *(e->prev_edge()->start) << *(e->twin_edge->prev_edge()->start) << std::endl;
          if (!do_anyway) {
             // check for flip correctness
             for (int i = 0; i < 2; i++) {
@@ -465,8 +444,7 @@ namespace cg
       }
 
       bool is_edge_bad(Edge<Scalar> e, bool is_twin = false) {         
-         if (is_inside(e->start, e->next_edge->start, e->prev_edge()->start, e->twin_edge->prev_edge()->start) ||
-             is_inside(e->twin_edge->start, e->twin_edge->next_edge->start, e->twin_edge->prev_edge()->start, e->prev_edge()->start)) {
+         if (is_inside(e->start, e->next_edge->start, e->prev_edge()->start, e->twin_edge->prev_edge()->start)) {
             return true;
          }
 
@@ -482,10 +460,9 @@ namespace cg
          int num_inf = 0;
          for (auto p : pts)
             if (p->is_inf_point) num_inf++;
-         if (num_inf > 1) return false;
+         if (num_inf > 1 || num_inf == 1 && vd->is_inf_point) return false;
 
          if (vd->is_inf_point) {
-            if (num_inf != 0) return false;
             return cg::orientation(*va, *vb, *vc) == CG_COLLINEAR;
          }
 
@@ -560,6 +537,7 @@ namespace cg
          }
 
       }
+
       std::vector<Edge<Scalar>> to_fix;
       void add_constraint_without_fixing(point_2t<Scalar> pa, point_2t<Scalar> pb, bool is_first = true) {
          segment_2t<Scalar> constraint_segment(pa, pb);
@@ -705,5 +683,4 @@ namespace cg
       std::vector<triangle_2t<Scalar> > res;
       cell<Scalar> tr_cell;
    };
-
 }
